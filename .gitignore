@@ -6,3 +6,26 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Android Ignored Files
+android-src/.gradle/
+android-src/build/
+android-src/app/build/
+android-src/**/build/
+android-src/local.properties
+android-src/app/google-services.json
+android-src/**/google-services.json
+android-src/*.iml
+android-src/**/*.iml
+android-src/.idea/
+android-src/captures/
+android-src/.externalNativeBuild/
+android-src/.cxx/
+android-src/app/release/
+android-src/app/debug/
+android-src/**/*.apk
+android-src/**/*.aab
+android-src/**/*.ap_
+android-src/**/*.keystore
+android-src/**/*.jks
+android-src/gradle/wrapper/gradle-wrapper.jar

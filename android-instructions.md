@@ -395,5 +395,5 @@ Replicate the exact content of the Web App's Instruction Manual in a clean Markd
 ## 🔒 Security & Backup Policy Note
 
 - **Conservative Backup & Transfer Policy**: To prevent session hijack and token leaks, SharedPreferences and private cache directories are explicitly excluded from Android cloud-backup and device-to-device transfers. `android:allowBackup` is disabled entirely (`false`) to ensure complete device-isolated data storage.
-- **Credential Integrity**: The standard `google-services.json` file and private developer keys must remain uncommitted in source control. Developers should download their own file from their Firebase Console project.
+- **Credential Integrity**: The standard `google-services.json` file, `local.properties`, private signing keystores/keys (`.keystore`, `.jks`), and IDE configuration files must remain uncommitted in source control. Developers must provide their own `google-services.json` file downloaded from their Firebase Console project and configure local keys locally.
 
