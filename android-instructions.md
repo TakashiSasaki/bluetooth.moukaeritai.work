@@ -4,7 +4,7 @@ To connect your Android device's Bluetooth status and remote controls to the **B
 
 1. Create a new "Empty Activity" project in Android Studio (or open the existing `android-src` folder in Android Studio).
 2. In the Firebase console (for project `moukaeritaid`), add an Android app.
-3. Download the `google-services.json` file and place it in your Android app's `app/` directory. Note: The build will fail without this file.
+3. Download the `google-services.json` file and place it in your Android app's `app/` directory (e.g., `android-src/app/google-services.json`). Note: The project Gradle configuration will compile as a reference skeleton if this file is missing, but the Firebase Auth/Firestore and Google Sign-In features will not initialize at runtime.
 4. If building from the shell, you will need a local Gradle installation as the Gradle wrapper binary is deliberately not committed. Ensure you run `gradle assembleDebug` or simply load the project in Android Studio which will generate the wrapper files automatically.
 5. Add the Firebase dependencies in your `app/build.gradle`:
 

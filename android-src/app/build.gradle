@@ -4,7 +4,14 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'com.google.gms.google-services' // Firebase用プラグイン
+}
+
+// google-services.json が存在する場合のみ Firebase プラグインを適用します
+def googleServicesFile = file("google-services.json")
+if (googleServicesFile.exists()) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.warn("google-services.json not found; Firebase runtime configuration will be unavailable. Place the file at android-src/app/google-services.json for a configured build.")
 }
 
 android {
