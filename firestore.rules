@@ -94,6 +94,11 @@ service cloud.firestore {
       return status is string && (status == 'pending' || status == 'acknowledged' || status == 'completed' || status == 'failed' || status == 'unsupported');
     }
 
+    function isValidCommandTransition(from, to) {
+      return (from == 'pending' && (to == 'acknowledged' || to == 'completed' || to == 'failed' || to == 'unsupported'))
+          || (from == 'acknowledged' && (to == 'completed' || to == 'failed' || to == 'unsupported'));
+    }
+
     function isValidCommand(data) {
       return data.keys().hasAll(['type', 'status', 'requestedAt'])
           && isValidCommandType(data.type)
@@ -163,7 +168,7 @@ service cloud.firestore {
                       && isValidId(commandId)
                       && isValidCommand(incoming())
                       && incoming().updatedAt == request.time
-                      && (existing().status == incoming().status || existing().status == 'pending' || existing().status == 'acknowledged')
+                      && isValidCommandTransition(existing().status, incoming().status)
                       && incoming().diff(existing()).affectedKeys().hasOnly([
                            'status', 'updatedAt', 'errorMessage', 'resultMessage'
                          ]);
