@@ -222,16 +222,18 @@ class MainActivity : AppCompatActivity() {
     private fun updatePermissionStatusUI() {
         // Bluetooth
         val hasBluetooth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val connectOk = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val scanOk = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+            connectOk && scanOk
         } else {
             true // Android 12未満はマニフェスト定義のみ
         }
 
         if (hasBluetooth) {
-            permissionBluetoothStatus.text = "● Bluetooth接続権限: 許可済み"
+            permissionBluetoothStatus.text = "● Bluetooth接続/スキャン権限: 許可済み"
             permissionBluetoothStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
         } else {
-            permissionBluetoothStatus.text = "● Bluetooth接続権限: 未付与 (動作しません)"
+            permissionBluetoothStatus.text = "● Bluetooth接続/スキャン権限: 未付与 (動作しません)"
             permissionBluetoothStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark))
         }
 
@@ -253,7 +255,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasRequiredPermissions(): Boolean {
         val bluetoothOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val connectOk = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val scanOk = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+            connectOk && scanOk
         } else {
             true
         }
@@ -269,6 +273,7 @@ class MainActivity : AppCompatActivity() {
         val requestList = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             requestList.add(Manifest.permission.BLUETOOTH_CONNECT)
+            // 今後のスキャン・ディスカバリー機能のために防御的に要求しておく
             requestList.add(Manifest.permission.BLUETOOTH_SCAN)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
