@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { collection, onSnapshot, query, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, arrayUnion, addDoc } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase/config';
 import { OperationType, handleFirestoreError } from '../firebase/error';
@@ -24,6 +24,53 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
+  const [pendingCommands, setPendingCommands] = useState<Record<string, string[]>>({}); // deviceId -> pending accessory addresses
+  const [pendingPowerRequests, setPendingPowerRequests] = useState<Record<string, boolean>>({}); // deviceId -> pending power requests
+
+  useEffect(() => {
+    const unsubscribes: (() => void)[] = [];
+    const nonDummyDevices = devices.filter(d => !d.id.startsWith('dummy_'));
+    
+    nonDummyDevices.forEach(device => {
+      const q = query(
+        collection(db, 'users', user.uid, 'devices', device.id, 'commands')
+      );
+      
+      const unsub = onSnapshot(q, (snapshot) => {
+        const disconnectAddresses: string[] = [];
+        let powerPending = false;
+        
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.status === 'pending') {
+            if (data.type === 'DISCONNECT_ACCESSORY' && data.accessoryAddress) {
+              disconnectAddresses.push(data.accessoryAddress);
+            } else if (data.type === 'SET_BLUETOOTH_POWER') {
+              powerPending = true;
+            }
+          }
+        });
+        
+        setPendingCommands(prev => ({
+          ...prev,
+          [device.id]: disconnectAddresses
+        }));
+        setPendingPowerRequests(prev => ({
+          ...prev,
+          [device.id]: powerPending
+        }));
+      }, (error) => {
+        console.error(`Error listening to commands for device ${device.id}:`, error);
+      });
+      
+      unsubscribes.push(unsub);
+    });
+    
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [devices, user.uid]);
+
   const toggleBluetoothPower = async (deviceId: string, currentPower?: boolean) => {
     setUpdatingPower(prev => ({ ...prev, [deviceId]: true }));
     try {
@@ -32,9 +79,8 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       
       const isDummy = deviceId.startsWith('dummy_');
       if (isDummy) {
-        // デモデータの場合は、要求フィールドとともに、現在状態(bluetoothPoweredOn)も即座に書き換えシミュレート
+        // デモデータの場合は、現在状態(bluetoothPoweredOn)も即座に書き換えシミュレート
         const updatePayload: any = {
-          requestBluetoothPower: targetState,
           bluetoothPoweredOn: targetState,
           lastUpdated: serverTimestamp()
         };
@@ -85,8 +131,13 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
         }
         await updateDoc(deviceRef, updatePayload);
       } else {
-        await updateDoc(deviceRef, {
-          requestBluetoothPower: targetState
+        // [本物デバイス] commands サブコレクションに新規コマンドを追加
+        const commandsColRef = collection(db, 'users', user.uid, 'devices', deviceId, 'commands');
+        await addDoc(commandsColRef, {
+          type: 'SET_BLUETOOTH_POWER',
+          status: 'pending',
+          requestedAt: serverTimestamp(),
+          targetPower: targetState
         });
       }
     } catch (error) {
@@ -133,10 +184,13 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
           });
         }
       } else {
-        // [本物デバイス] Androidアプリに切断を指令
-        await updateDoc(deviceRef, {
-          disconnectRequests: arrayUnion(address),
-          lastUpdated: serverTimestamp()
+        // [本物デバイス] commands サブコレクションに新規コマンドを追加
+        const commandsColRef = collection(db, 'users', user.uid, 'devices', deviceId, 'commands');
+        await addDoc(commandsColRef, {
+          type: 'DISCONNECT_ACCESSORY',
+          status: 'pending',
+          requestedAt: serverTimestamp(),
+          accessoryAddress: address
         });
       }
     } catch (error) {
@@ -159,7 +213,6 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
         deviceName: '[デモ] Google Pixel 8 Pro',
         bluetoothConnected: true,
         bluetoothPoweredOn: true,
-        requestBluetoothPower: true,
         lastUpdated: serverTimestamp(),
         connectedDevices: [
           {
@@ -197,7 +250,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
             isConnected: true
           },
           {
-            name: 'MacBook Pro 16"',
+            name: 'MacBook Pro 16 "',
             address: 'A4:83:E7:5C:1F:D2',
             type: 'COMPUTER',
             firstConnectedAt: now - 2 * 24 * 60 * 60 * 1000,
@@ -205,8 +258,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
             lastDisconnectedAt: now - 12 * 60 * 60 * 1000,
             isConnected: false
           }
-        ],
-        disconnectRequests: []
+        ]
       });
 
       // [デモ] Sony Xperia 1 V
@@ -214,7 +266,6 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
         deviceName: '[デモ] Sony Xperia 1 V',
         bluetoothConnected: false,
         bluetoothPoweredOn: false,
-        requestBluetoothPower: false,
         lastUpdated: serverTimestamp(),
         connectedDevices: [],
         allDevices: [
@@ -236,8 +287,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
             lastDisconnectedAt: now - 24 * 60 * 60 * 1000,
             isConnected: false
           }
-        ],
-        disconnectRequests: []
+        ]
       });
 
       // [デモ] Samsung Galaxy S24 Ultra (Bluetooth機能ONだがペアリングされているものの現在未接続のデモデータ)
@@ -245,7 +295,6 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
         deviceName: '[デモ] Samsung Galaxy S24 Ultra',
         bluetoothConnected: false,
         bluetoothPoweredOn: true,
-        requestBluetoothPower: true,
         lastUpdated: serverTimestamp(),
         connectedDevices: [],
         allDevices: [
@@ -267,8 +316,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
             lastDisconnectedAt: now - 4 * 24 * 60 * 60 * 1000,
             isConnected: false
           }
-        ],
-        disconnectRequests: []
+        ]
       });
     } catch (error) {
       console.error('Error registering dummy data:', error);
@@ -651,23 +699,28 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                     {/* Remote Controller Action Switch */}
                     <div className="flex flex-col items-end gap-1 bg-slate-50/80 p-1.5 rounded-lg border border-slate-100">
                       <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">ON/OFF Remote</span>
-                      <button
-                        onClick={() => {
-                          const currentToggleState = device.requestBluetoothPower ?? device.bluetoothPoweredOn ?? true;
-                          toggleBluetoothPower(device.id, currentToggleState);
-                        }}
-                        disabled={updatingPower[device.id]}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                          (device.requestBluetoothPower ?? device.bluetoothPoweredOn ?? true) ? 'bg-blue-600' : 'bg-slate-300'
-                        } ${updatingPower[device.id] ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <span className="sr-only">Toggle Bluetooth Power</span>
-                        <span
-                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                            (device.requestBluetoothPower ?? device.bluetoothPoweredOn ?? true) ? 'translate-x-5' : 'translate-x-0.5'
-                          }`}
-                        />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {!device.id.startsWith('dummy_') && pendingPowerRequests[device.id] && (
+                          <span className="text-[8px] font-bold text-amber-500 animate-pulse uppercase">要求中</span>
+                        )}
+                        <button
+                          onClick={() => {
+                            const currentToggleState = device.bluetoothPoweredOn !== false;
+                            toggleBluetoothPower(device.id, currentToggleState);
+                          }}
+                          disabled={updatingPower[device.id] || (!device.id.startsWith('dummy_') && pendingPowerRequests[device.id])}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                            (device.bluetoothPoweredOn !== false) ? 'bg-blue-600' : 'bg-slate-300'
+                          } ${(updatingPower[device.id] || (!device.id.startsWith('dummy_') && pendingPowerRequests[device.id])) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <span className="sr-only">Toggle Bluetooth Power</span>
+                          <span
+                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                              (device.bluetoothPoweredOn !== false) ? 'translate-x-5' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -697,9 +750,9 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                         </span>
                         <div className="space-y-1.5 max-h-32 overflow-y-auto">
                           {device.connectedDevices.map((sub, sIdx) => {
-                            const isRequestPending = device.disconnectRequests?.includes(sub.address) || false;
-                            const isSpinning = disconnecting[`${device.id}-${sub.address}`];
                             const isDummy = device.id.startsWith('dummy_');
+                            const isRequestPending = !isDummy && (pendingCommands[device.id]?.includes(sub.address) || false);
+                            const isSpinning = disconnecting[`${device.id}-${sub.address}`];
 
                             return (
                               <div key={sIdx} className="flex justify-between items-center text-xs bg-white p-1.5 rounded border border-blue-50 gap-2">

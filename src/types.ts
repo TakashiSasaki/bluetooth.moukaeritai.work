@@ -13,10 +13,24 @@ export interface Device {
   deviceName: string;
   bluetoothConnected: boolean; // True if at least one device is connected
   bluetoothPoweredOn?: boolean;  // Is the Bluetooth adapter itself turned on/active?
-  requestBluetoothPower?: boolean; // Requested power state from remote control
   connectedDevices: BluetoothDevice[]; // Currently active connected devices (or legacy)
   allDevices?: BluetoothDevice[]; // All-time history of Bluetooth devices
-  disconnectRequests?: string[]; // Array of bluetooth hardware addresses requested to disconnect
   lastUpdated: number;
+}
+
+export type DeviceCommandType = 'SET_BLUETOOTH_POWER' | 'DISCONNECT_ACCESSORY';
+
+export type DeviceCommandStatus = 'pending' | 'acknowledged' | 'completed' | 'failed' | 'unsupported';
+
+export interface DeviceCommand {
+  id: string;
+  type: DeviceCommandType;
+  status: DeviceCommandStatus;
+  requestedAt: any; // Timestamp
+  updatedAt?: any; // Timestamp
+  targetPower?: boolean;
+  accessoryAddress?: string;
+  errorMessage?: string;
+  resultMessage?: string;
 }
 

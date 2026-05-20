@@ -68,13 +68,18 @@ We have successfully hardened `firestore.rules` under the user-scoped `/users/{u
 5. **Array Bounding Restrictions**:
    - `connectedDevices`: maximum 20 entries.
    - `allDevices`: maximum 50 entries.
-   - `disconnectRequests`: maximum 20 entries.
-6. **Bluetooth MAC Address Regex**: Validates representation format (`^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`) for `address` fields and `disconnectRequests` string values.
+6. **Bluetooth MAC Address Regex**: Validates representation format (`^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`) for `address` fields.
 7. **Typing Enumeration Sanity**: Restricts device classification `type` values exactly to the allowed list: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
 8. **First-Element Validation (Partial Array Validation)**: Inspects and validates the structure, nested key allowlist, and data types of the first element of list structures when non-empty as a practical representative compromise due to the known limitations of Firestore Security Rules around array looping. Future agents must not assume every element in `connectedDevices`/`allDevices` is validated; application-side validation or sub-collection migration is recommended.
 
-## 🚀 Future Phase 4B & 5 Schema Migration & Isolation Goals
+## ⚡ Completed Command / Telemetry Separation (Phase 4B)
+We have introduced a per-device commands subcollection path (`/users/{uid}/devices/{deviceId}/commands/{commandId}`):
+1. **Telemetry Isolation**: Removed all transient command fields (`requestBluetoothPower`, `disconnectRequests`) from the telemetry document to minimize update/write overhead.
+2. **Independent Status Tracker**: Command documents contain metadata such as `type`, `status` (`pending`, `acknowledged`, `completed`, `failed`, `unsupported`), and server-side `requestedAt`/`updatedAt` timestamps.
+3. **Stricter Validation Rules**: Added validation helpers (`isValidCommand()`, `isValidCommandType()`, `isValidCommandStatus()`) to enforce type-specific properties like `targetPower` for `SET_BLUETOOTH_POWER` and format-checked `accessoryAddress` via Bluetooth MAC Address regex for `DISCONNECT_ACCESSORY`.
+4. **Audit Trail**: Real-world/replica Android devices fetch commands with status `"pending"`, execute the task asynchronously, and safely write logs of their execution back to the same command document.
+
+## 🚀 Future Phase 5 Schema Migration & Isolation Goals
 Use these specifications to guide future database schema iterations:
-1. **Command / Telemetry Separation**: Migrate control parameters (such as `requestBluetoothPower` and `disconnectRequests`) to a distinct requests collection to minimize write overhead on telemetry updates.
-2. **Full Per-Element Array Validation**: Implement individual document/sub-collection designs for robust per-element validation.
+1. **Full Per-Element Array Validation**: Implement individual document/sub-collection designs for robust per-element validation.
 

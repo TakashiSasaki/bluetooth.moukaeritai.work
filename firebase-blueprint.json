@@ -26,10 +26,6 @@
           "type": "boolean",
           "description": "Whether the Android Bluetooth adapter itself is active"
         },
-        "requestBluetoothPower": {
-          "type": "boolean",
-          "description": "Desired state of Bluetooth adapter power requested by remote monitors"
-        },
         "connectedDevices": {
           "type": "array",
           "items": { "$ref": "#/entities/BluetoothDevice" },
@@ -41,12 +37,52 @@
         }
       },
       "required": ["deviceName", "bluetoothConnected", "lastUpdated"]
+    },
+    "DeviceCommand": {
+      "title": "DeviceCommand",
+      "description": "A pending or processed Bluetooth power or accessory disconnection request command document.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["SET_BLUETOOTH_POWER", "DISCONNECT_ACCESSORY"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "acknowledged", "completed", "failed", "unsupported"]
+        },
+        "requestedAt": {
+          "type": "object",
+          "description": "Firestore server timestamp of the request"
+        },
+        "updatedAt": {
+          "type": "object",
+          "description": "Firestore server timestamp when command was acknowledged/completed"
+        },
+        "targetPower": {
+          "type": "boolean"
+        },
+        "accessoryAddress": {
+          "type": "string"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "resultMessage": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "status", "requestedAt"]
     }
   },
   "firestore": {
     "/users/{uid}/devices/{deviceId}": {
       "schema": { "$ref": "#/entities/Device" },
       "description": "A collection of devices owned by users."
+    },
+    "/users/{uid}/devices/{deviceId}/commands/{commandId}": {
+      "schema": { "$ref": "#/entities/DeviceCommand" },
+      "description": "A collection of asynchronous command executions targeted to devices."
     }
   }
 }

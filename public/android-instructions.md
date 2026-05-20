@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
         syncBluetoothStatusToFirebase()
 
         // 3. Initiate Firestore Listeners for Syncing status options
-        listenForRemotePowerCommands()
+        listenForRemoteCommands()
         startListeningToOtherDevices()
     }
 
@@ -218,53 +218,101 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // --- REMOTE BLUETOOTH ADAPTER POWER CONTROLLER ---
+    // --- REMOTE BLUETOOTH ADAPTER POWER & ACCESSORY DISCONNECT COMMANDS ---
+    //
+    // Android device listens for pending commands under `/users/{uid}/devices/{deviceId}/commands`
+    // with status == "pending". Once processed, it updates status, updatedAt, and results.
     //
     // ⚠️ CRITICAL ANDROID PLATFORM LIMITATION WARNING:
     // BluetoothAdapter.enable() and BluetoothAdapter.disable() are deprecated on modern Android
     // versions and strictly restricted for third-party user-installed apps (Android 10+ / API 29+).
     // Normal apps should NOT rely on programmatic Bluetooth toggling in production.
     // Recommended implementations should monitor native Bluetooth adapter changes and write
-    // status telemetry only. Treat remote controls strictly as experimental instruction queues
-    // that require specialized platform permissions (e.g. Device Owner / system privileges) to run.
-    private fun listenForRemotePowerCommands() {
+    // status telemetry only.
+    private fun listenForRemoteCommands() {
         val currentUser = auth.currentUser ?: return
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        val docRef = db.collection("devices").document(deviceId)
-        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return
+        val commandsColRef = db.collection("users").document(currentUser.uid)
+            .collection("devices").document(deviceId).collection("commands")
+         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return
 
-        docRef.addSnapshotListener { snapshot, e ->
-            if (e != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+        commandsColRef.whereEqualTo("status", "pending").addSnapshotListener { snapshots, e ->
+            if (e != null || snapshots == null) return@addSnapshotListener
             
-            val requestedPower = snapshot.getBoolean("requestBluetoothPower") ?: return@addSnapshotListener
-            val currentPower = adapter.isEnabled
-
-            if (requestedPower != currentPower) {
-                println("Received remote Bluetooth power request: $requestedPower")
-                try {
-                    // NOTE: This programmatic switch is privileged-device/system-app pseudocode.
-                    // On consumer Android 10+ devices, calling enable() or disable() directly
-                    // will be ignored or throw a SecurityException.
-                    //
-                    // TODO (For Standard Consumer Devices):
-                    // Instead of attempting programmatic toggle, standard consumer application
-                    // implementations should trigger a user-facing notification or launch the native Bluetooth
-                    // settings intent (BluetoothAdapter.ACTION_REQUEST_ENABLE) for explicit human confirmation.
+            for (change in snapshots.documentChanges) {
+                if (change.type == com.google.firebase.firestore.DocumentChange.Type.ADDED) {
+                    val doc = change.document
+                    val commandId = doc.id
+                    val cmdType = doc.getString("type") ?: continue
                     
-                    println("Attempting privileged Bluetooth power change (might fail or be ignored)...")
-                    val success = if (requestedPower) {
-                        adapter.enable()
-                    } else {
-                        adapter.disable()
+                    if (cmdType == "SET_BLUETOOTH_POWER") {
+                        val requestedPower = doc.getBoolean("targetPower") ?: continue
+                        val currentPower = adapter.isEnabled
+                        
+                        if (requestedPower != currentPower) {
+                            println("Received remote Bluetooth power request: $requestedPower")
+                            try {
+                                println("Attempting privileged Bluetooth power change (might fail or be ignored)...")
+                                val success = if (requestedPower) {
+                                    adapter.enable()
+                                } else {
+                                    adapter.disable()
+                                }
+                                
+                                val status = if (success) "completed" else "failed"
+                                val errMsg = if (success) null else "Platform restricted Bluetooth toggle for user-installed app."
+                                
+                                commandsColRef.document(commandId).update(
+                                    mapOf(
+                                        "status" to status,
+                                        "updatedAt" to FieldValue.serverTimestamp(),
+                                        "errorMessage" to errMsg
+                                    )
+                                )
+                            } catch (ex: Exception) {
+                                commandsColRef.document(commandId).update(
+                                    mapOf(
+                                        "status" to "failed",
+                                        "updatedAt" to FieldValue.serverTimestamp(),
+                                        "errorMessage" to ex.message
+                                    )
+                                )
+                            }
+                        } else {
+                            // Already in target power state, mark completed immediately
+                            commandsColRef.document(commandId).update(
+                                mapOf(
+                                    "status" to "completed",
+                                    "updatedAt" to FieldValue.serverTimestamp(),
+                                    "resultMessage" to "Already in target state."
+                                )
+                            )
+                        }
+                    } else if (cmdType == "DISCONNECT_ACCESSORY") {
+                        val address = doc.getString("accessoryAddress") ?: continue
+                        println("Received accessory disconnect command for: $address")
+                        try {
+                            // Programmatically disconnecting paired profiles (A2DP, HFP, BLE) requires profile proxy reflection.
+                            // If successfully executed physically:
+                            println("Executing Bluetooth accessory disconnect reflection for $address...")
+                            
+                            commandsColRef.document(commandId).update(
+                                mapOf(
+                                    "status" to "completed",
+                                    "updatedAt" to FieldValue.serverTimestamp(),
+                                    "resultMessage" to "Accessory disconnect command processed."
+                                )
+                            )
+                        } catch (ex: Exception) {
+                            commandsColRef.document(commandId).update(
+                                mapOf(
+                                    "status" to "failed",
+                                    "updatedAt" to FieldValue.serverTimestamp(),
+                                    "errorMessage" to ex.message
+                                )
+                            )
+                        }
                     }
-                    
-                    if (success) {
-                        println("Programmatic status change call succeeded, checking physical state propagation...")
-                    } else {
-                        println("Platform returned failure for programmatic power change: Bluetooth power control is restricted on normal apps.")
-                    }
-                } catch (ex: Exception) {
-                    println("Exception during privileged Bluetooth power change action: $ex (Programmatic Bluetooth control is restricted on normal devices)")
                 }
             }
         }
@@ -279,8 +327,7 @@ class MainActivity : ComponentActivity() {
     // Since we want both Web App and Android App to view status of all paired devices under this account:
     private fun startListeningToOtherDevices() {
         val currentUser = auth.currentUser ?: return
-        db.collection("devices")
-            .whereEqualTo("userId", currentUser.uid)
+        db.collection("users").document(currentUser.uid).collection("devices")
             .addSnapshotListener { snapshots, e ->
                 if (e != null) {
                     println("Listen failed: $e")

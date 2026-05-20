@@ -92,10 +92,19 @@ We have successfully migrated and hardened Firestore Security Rules and schema u
 5. **List Length Bounding**:
    - `connectedDevices` is restricted to max 20 entries.
    - `allDevices` is restricted to max 50 entries.
-   - `disconnectRequests` is restricted to max 20 entries.
 6. **Bluetooth MAC Address Regex validation**: Checks that device address strings match `^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`.
 7. **Typing Enumeration Sanity**: Enforces valid device classification type strings: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
 8. **First-Element Validation (Partial Array Validation)**: Due to the known limitations of Firestore Security Rules around looping or iterating over arbitrary-length arrays, we validate the structure and allowed keys of the first element in lists when non-empty as a practical representative compromise (`data.array[0] is map`).
+
+---
+
+## ⚡ Command / Telemetry Separation & Subcollections (Phase 4B Completed)
+
+We have successfully separated interactive operator control queues from primary state telemetry updates:
+1. **Command Subcollection Path**: Created an independent command subcollection under `/users/{uid}/devices/{deviceId}/commands/{commandId}`.
+2. **Telemetry Isolation**: Removed `requestBluetoothPower` and `disconnectRequests` fields from device telemetry documents to minimize unnecessary write overhead.
+3. **Stricter Validation Rules**: Added validation helpers (`isValidCommand`, `isValidCommandType`, `isValidCommandStatus`) to enforce proper payload schema, including type-specific fields (`targetPower` for `SET_BLUETOOTH_POWER` and regex-vetted `accessoryAddress` for `DISCONNECT_ACCESSORY`).
+4. **Asynchronous Command Pattern**: Operators write commands as new documents in the `commands` subcollection. Native companion units or mock-service workers dynamically pick up pending commands, execute them, and report execution logs and final statuses (`completed`/`failed`/`unsupported`) directly on the command documents.
 
 ### 📦 Pre-Production Data Cleanup Note
 - This application is pre-production; therefore, no database migration script is provided.
@@ -104,10 +113,9 @@ We have successfully migrated and hardened Firestore Security Rules and schema u
 
 ---
 
-## 📅 Remaining Task List & Future Roadmap (Phases 4B & 5)
+## 📅 Remaining Task List & Future Roadmap (Phase 5)
 
 - [ ] **PWA Icons Integration**: Add corporate or custom brand assets for desktop and mobile homescreens (e.g., `pwa-192x192.png` and `pwa-512x512.png`), re-enabling the icons array definition inside `/public/manifest.json`.
 - [ ] **Android App Build**: Compile and deploy the companion client service within Android Studio using the instructions inside `/android-instructions.md`.
-- [ ] **Command / Telemetry Isolation (Phase 4B)**: Separate interactive control queues (such as `requestBluetoothPower` and `disconnectRequests`) from telemetry values into isolated document paths to minimize write cost overhead.
 - [ ] **Full Array Validation**: Implement granular per-element array verification under isolated sub-collections or cloud functions.
 
