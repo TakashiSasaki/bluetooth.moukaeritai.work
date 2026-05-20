@@ -42,6 +42,7 @@ service cloud.firestore {
     function isValidBluetoothDevice(item) {
       return item is map
           && item.keys().hasAll(['name', 'address'])
+          && item.keys().hasOnly(['name', 'address', 'type', 'firstConnectedAt', 'lastConnectedAt', 'lastDisconnectedAt', 'isConnected'])
           && item.name is string
           && item.name.size() > 0
           && item.name.size() <= 100

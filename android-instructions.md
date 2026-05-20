@@ -133,8 +133,6 @@ class MainActivity : ComponentActivity() {
                             android.bluetooth.BluetoothClass.Device.Major.COMPUTER -> "COMPUTER"
                             android.bluetooth.BluetoothClass.Device.Major.PHONE -> "PHONE"
                             android.bluetooth.BluetoothClass.Device.Major.WEARABLE -> "WEARABLE"
-                            android.bluetooth.BluetoothClass.Device.Major.TOY -> "TOY"
-                            android.bluetooth.BluetoothClass.Device.Major.HEALTH -> "HEALTH"
                             else -> "OTHER"
                         }
                         currentConnectedList.add(hashMapOf(

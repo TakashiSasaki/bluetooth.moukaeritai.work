@@ -69,10 +69,11 @@ We have successfully hardened `firestore.rules` under the current `/devices/{dev
    - `disconnectRequests`: maximum 20 entries.
 4. **Bluetooth MAC Address Regex**: Validates representation format (`^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`) for `address` fields and `disconnectRequests` string values.
 5. **Typing Enumeration Sanity**: Restricts device classification `type` values exactly to the allowed list: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
-6. **Limit Iteration Verification**: Validates structure and inner fields of the first element of list structures when non-empty, bypassing standard Firestore array iteration limitations securely.
+6. **First-Element Validation (Partial Array Validation)**: Inspects and validates the structure, nested key allowlist, and data types of the first element of list structures when non-empty as a practical representative compromise due to the known limitations of Firestore Security Rules around array looping. Future agents must not assume every element in `connectedDevices`/`allDevices` is validated; application-side validation or sub-collection migration is recommended.
 
 ## 🚀 Future Phase 4 Schema Migration & Isolation Goals
 Use these specifications to guide future database schema iterations:
 1. **Sub-resource Migration Plan**: Migrate standard entries to user nested structures (`/users/{uid}/devices/{deviceId}`) to naturally inherit secure scope policies.
 2. **Command / Telemetry Separation**: Migrate control parameters (such as `requestBluetoothPower` and `disconnectRequests`) to a distinct requests collection to minimize write overhead on telemetry updates.
+3. **Full Per-Element Array Validation**: Implement individual document/sub-collection designs for robust per-element validation.
 

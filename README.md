@@ -93,7 +93,7 @@ We have successfully locked down and hardened Firestore Security Rules under the
    - `disconnectRequests` is restricted to max 20 entries.
 4. **Bluetooth MAC Address Regex validation**: Checks that device address strings match `^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`.
 5. **Typing Enumeration Sanity**: Enforces valid device classification type strings: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
-6. **Limit Iteration Verification**: Safe verification of structure and fields of the first element in lists, bypassing native rules limitation for array iteration by validating the first element (`data.array[0] is map`).
+6. **First-Element Validation (Partial Array Validation)**: Due to the known limitations of Firestore Security Rules around looping or iterating over arbitrary-length arrays, we validate the structure and allowed keys of the first element in lists when non-empty as a practical representative compromise (`data.array[0] is map`). Full, complete per-element validation remains an active limitation to be addressed under a refined user sub-resource structure.
 
 ---
 
@@ -103,4 +103,5 @@ We have successfully locked down and hardened Firestore Security Rules under the
 - [ ] **Android App Build**: Compile and deploy the companion client service within Android Studio using the instructions inside `/android-instructions.md`.
 - [ ] **Structured User Sub-resource Migration**: Migrate the root path `/devices/{deviceId}` to a nested user scope `/users/{uid}/devices/{deviceId}`.
 - [ ] **Command / Telemetry Isolation**: Separate interactive control queues (such as `requestBluetoothPower` and `disconnectRequests`) from telemetry values into isolated document paths to minimize write cost overhead.
+- [ ] **Full Array Validation**: Implement granular per-element array verification under isolated sub-collections or cloud functions.
 
