@@ -26,8 +26,11 @@ This guide outlines the system architecture, development rules, constraints, and
 7. **Android Implementation Material**: `android-instructions.md` documents service implementation blueprints and schemas for native engineers.
 
 ## 🛠️ Development & Validation Scripts
+> [!IMPORTANT]
+> **package-lock.json is intentionally absent for now** because the previous lockfile was stale and inconsistent with `package.json`. Until a fresh lockfile is regenerated and committed, **use `npm install` instead of `npm ci`**. Before CI, release, or reproducible-build workflows are introduced, regenerate `package-lock.json` from the current `package.json` and verify `npm ci`, `npm run lint`, and `npm run build`.
+
 Execute the following native scripts exactly as defined in `package.json`:
-- `npm install` — Installs package dependencies.
+- `npm install` — Installs package dependencies. (Use `npm install` instead of `npm ci` in this temporary state)
 - `npm run dev` — Bootstraps developer sandbox server at `http://localhost:3000`.
 - `npm run lint` — Executes static TypeScript compile checks (`tsc --noEmit`).
 - `npm run build` — Bundles optimization build assets into raw output root `dist/`.
