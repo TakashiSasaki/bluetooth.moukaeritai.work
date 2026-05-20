@@ -6,5 +6,6 @@
   "databaseURL": "https://moukaeritaid-default-rtdb.asia-southeast1.firebasedatabase.app",
   "storageBucket": "moukaeritaid.firebasestorage.app",
   "messagingSenderId": "1042140630327",
-  "measurementId": ""
+  "measurementId": "",
+  "firestoreDatabaseId": "bluetooth-moukaeritai-work"
 }
