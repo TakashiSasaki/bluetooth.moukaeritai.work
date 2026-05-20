@@ -76,9 +76,8 @@ service cloud.firestore {
     // Validation Blueprints (Anti-Update-Gap)
     // -------------------------------------------------------------------------
     function isValidDevice(data) {
-      return data.keys().hasAll(['userId', 'deviceName', 'bluetoothConnected', 'lastUpdated'])
+      return data.keys().hasAll(['deviceName', 'bluetoothConnected', 'lastUpdated'])
           // Ensure all fields have correct data types and semantic sizes
-          && data.userId == request.auth.uid
           && data.deviceName is string
           && data.deviceName.size() > 0
           && data.deviceName.size() <= 100
@@ -90,7 +89,7 @@ service cloud.firestore {
           && (!data.keys().hasAny(['disconnectRequests']) || validateDisconnectRequests(data.disconnectRequests))
           // Strict top-level allowed key check using empty diff. Computes Set of keys and asserts hasOnly
           && data.diff({}).affectedKeys().hasOnly([
-               'userId', 'deviceName', 'bluetoothConnected', 'lastUpdated',
+               'deviceName', 'bluetoothConnected', 'lastUpdated',
                'bluetoothPoweredOn', 'requestBluetoothPower', 'connectedDevices',
                'allDevices', 'disconnectRequests'
              ]);
@@ -99,23 +98,23 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     // Collections
     // -------------------------------------------------------------------------
-    match /devices/{deviceId} {
+    match /users/{uid}/devices/{deviceId} {
       // READ: Users can only read their own devices
-      allow get: if isVerified() && isValidId(deviceId) && existing().userId == request.auth.uid;
-      allow list: if isVerified() && existing().userId == request.auth.uid;
+      allow get: if isVerified() && isValidId(uid) && isValidId(deviceId) && uid == request.auth.uid;
+      allow list: if isVerified() && isValidId(uid) && uid == request.auth.uid;
 
       // CREATE: Users can only create devices for themselves
       allow create: if isVerified() 
+                    && isValidId(uid) && uid == request.auth.uid
                     && isValidId(deviceId) 
                     && isValidDevice(incoming())
                     && incoming().lastUpdated == request.time;
 
-      // UPDATE: Only allow explicitly updating allowed fields and keeping userId constant
+      // UPDATE: Only allow explicitly updating allowed fields
       allow update: if isVerified() 
+                    && isValidId(uid) && uid == request.auth.uid
                     && isValidId(deviceId) 
-                    && existing().userId == request.auth.uid
                     && isValidDevice(incoming())
-                    && incoming().userId == existing().userId
                     && (incoming().lastUpdated == request.time || incoming().lastUpdated == existing().lastUpdated)
                     // Action: Update Status (Ensure update cannot introduce arbitrary fields)
                     && incoming().diff(existing()).affectedKeys().hasOnly([
@@ -124,7 +123,7 @@ service cloud.firestore {
                        ]);
 
       // DELETE: Users can delete their own devices
-      allow delete: if isVerified() && isValidId(deviceId) && existing().userId == request.auth.uid;
+      allow delete: if isVerified() && isValidId(uid) && uid == request.auth.uid && isValidId(deviceId);
     }
   }
 }

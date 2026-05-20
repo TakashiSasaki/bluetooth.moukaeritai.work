@@ -82,26 +82,32 @@ It is critical to evaluate the following platform restrictions before planning a
 
 ---
 
-## 🔒 Hardened Firestore Security Rules (Phase 3 Completed)
+## 🔒 Hardened User-Scoped Firestore Security Rules & Schema (Phase 4A Completed)
 
-We have successfully locked down and hardened Firestore Security Rules under the unchanged `/devices/{deviceId}` path:
-1. **Strict Key Allowlists**: Prevents arbitrary field injection on create/update using standard empty map diffs (`incoming().diff({}).affectedKeys().hasOnly([...])`).
-2. **Field Types & Size Constraints**: Validates primitive types and enforces limits (e.g., `deviceName` string length check <= 100).
-3. **List Length Bounding**:
+We have successfully migrated and hardened Firestore Security Rules and schema under the user-scoped path `/users/{uid}/devices/{deviceId}`:
+1. **Strict Path-Based Ownership**: The dynamic path variable `uid` serves as the primary authorization boundary (`uid == request.auth.uid`). Users are strictly restricted to reading, creating, updating, and deleting only their own nested device documents.
+2. **Lean Document Schema**: Device documents no longer contain or require the redundant `userId` field. Ownership is represented entirely by the path `/users/{uid}/devices/{deviceId}`, and rules map access strictly to `request.auth.uid`.
+3. **Strict Key Allowlists**: Prevents arbitrary field injection on create/update using standard empty map diffs (`incoming().diff({}).affectedKeys().hasOnly([...])`).
+4. **Field Types & Size Constraints**: Validates primitive types and enforces limits (e.g., `deviceName` string length check <= 100).
+5. **List Length Bounding**:
    - `connectedDevices` is restricted to max 20 entries.
    - `allDevices` is restricted to max 50 entries.
    - `disconnectRequests` is restricted to max 20 entries.
-4. **Bluetooth MAC Address Regex validation**: Checks that device address strings match `^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`.
-5. **Typing Enumeration Sanity**: Enforces valid device classification type strings: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
-6. **First-Element Validation (Partial Array Validation)**: Due to the known limitations of Firestore Security Rules around looping or iterating over arbitrary-length arrays, we validate the structure and allowed keys of the first element in lists when non-empty as a practical representative compromise (`data.array[0] is map`). Full, complete per-element validation remains an active limitation to be addressed under a refined user sub-resource structure.
+6. **Bluetooth MAC Address Regex validation**: Checks that device address strings match `^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`.
+7. **Typing Enumeration Sanity**: Enforces valid device classification type strings: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
+8. **First-Element Validation (Partial Array Validation)**: Due to the known limitations of Firestore Security Rules around looping or iterating over arbitrary-length arrays, we validate the structure and allowed keys of the first element in lists when non-empty as a practical representative compromise (`data.array[0] is map`).
+
+### 📦 Pre-Production Data Cleanup Note
+- This application is pre-production; therefore, no database migration script is provided.
+- Existing root-level `/devices` demo data in Firestore can be safely discarded or deleted manually.
+- The web app and companion integrations now exclusively interact with `/users/{uid}/devices/{deviceId}` going forward. Discarding old collections avoids clutter.
 
 ---
 
-## 📅 Remaining Task List & Future Roadmap (Phase 4)
+## 📅 Remaining Task List & Future Roadmap (Phases 4B & 5)
 
 - [ ] **PWA Icons Integration**: Add corporate or custom brand assets for desktop and mobile homescreens (e.g., `pwa-192x192.png` and `pwa-512x512.png`), re-enabling the icons array definition inside `/public/manifest.json`.
 - [ ] **Android App Build**: Compile and deploy the companion client service within Android Studio using the instructions inside `/android-instructions.md`.
-- [ ] **Structured User Sub-resource Migration**: Migrate the root path `/devices/{deviceId}` to a nested user scope `/users/{uid}/devices/{deviceId}`.
-- [ ] **Command / Telemetry Isolation**: Separate interactive control queues (such as `requestBluetoothPower` and `disconnectRequests`) from telemetry values into isolated document paths to minimize write cost overhead.
+- [ ] **Command / Telemetry Isolation (Phase 4B)**: Separate interactive control queues (such as `requestBluetoothPower` and `disconnectRequests`) from telemetry values into isolated document paths to minimize write cost overhead.
 - [ ] **Full Array Validation**: Implement granular per-element array verification under isolated sub-collections or cloud functions.
 

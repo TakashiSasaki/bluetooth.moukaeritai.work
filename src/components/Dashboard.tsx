@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { collection, onSnapshot, query, where, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase/config';
 import { OperationType, handleFirestoreError } from '../firebase/error';
@@ -28,7 +28,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     setUpdatingPower(prev => ({ ...prev, [deviceId]: true }));
     try {
       const targetState = !currentPower;
-      const deviceRef = doc(db, 'devices', deviceId);
+      const deviceRef = doc(db, 'users', user.uid, 'devices', deviceId);
       
       const isDummy = deviceId.startsWith('dummy_');
       if (isDummy) {
@@ -91,7 +91,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       }
     } catch (error) {
       console.error('Error updating Bluetooth power request:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `devices/${deviceId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/devices/${deviceId}`);
     } finally {
       setUpdatingPower(prev => ({ ...prev, [deviceId]: false }));
     }
@@ -101,7 +101,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     const key = `${deviceId}-${address}`;
     setDisconnecting(prev => ({ ...prev, [key]: true }));
     try {
-      const deviceRef = doc(db, 'devices', deviceId);
+      const deviceRef = doc(db, 'users', user.uid, 'devices', deviceId);
       
       if (isDummy) {
         // [デモ/ダビデータ] 接続機器一覧から即削除し、履歴の状態を INACTIVE にする
@@ -141,7 +141,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       }
     } catch (error) {
       console.error('Error requesting accessory disconnect:', error);
-      handleFirestoreError(error, OperationType.UPDATE, `devices/${deviceId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/devices/${deviceId}`);
     } finally {
       setDisconnecting(prev => ({ ...prev, [key]: false }));
     }
@@ -155,8 +155,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       const now = Date.now();
 
       // [デモ] Google Pixel 8 Pro
-      await setDoc(doc(db, 'devices', pixelId), {
-        userId: user.uid,
+      await setDoc(doc(db, 'users', user.uid, 'devices', pixelId), {
         deviceName: '[デモ] Google Pixel 8 Pro',
         bluetoothConnected: true,
         bluetoothPoweredOn: true,
@@ -211,8 +210,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       });
 
       // [デモ] Sony Xperia 1 V
-      await setDoc(doc(db, 'devices', xperiaId), {
-        userId: user.uid,
+      await setDoc(doc(db, 'users', user.uid, 'devices', xperiaId), {
         deviceName: '[デモ] Sony Xperia 1 V',
         bluetoothConnected: false,
         bluetoothPoweredOn: false,
@@ -243,8 +241,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       });
 
       // [デモ] Samsung Galaxy S24 Ultra (Bluetooth機能ONだがペアリングされているものの現在未接続のデモデータ)
-      await setDoc(doc(db, 'devices', galaxyId), {
-        userId: user.uid,
+      await setDoc(doc(db, 'users', user.uid, 'devices', galaxyId), {
         deviceName: '[デモ] Samsung Galaxy S24 Ultra',
         bluetoothConnected: false,
         bluetoothPoweredOn: true,
@@ -275,7 +272,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       });
     } catch (error) {
       console.error('Error registering dummy data:', error);
-      handleFirestoreError(error, OperationType.WRITE, 'devices');
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/devices`);
     }
   };
 
@@ -285,12 +282,12 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       const xperiaId = `dummy_xperia_1_${user.uid}`;
       const galaxyId = `dummy_galaxy_24_${user.uid}`;
 
-      await deleteDoc(doc(db, 'devices', pixelId));
-      await deleteDoc(doc(db, 'devices', xperiaId));
-      await deleteDoc(doc(db, 'devices', galaxyId));
+      await deleteDoc(doc(db, 'users', user.uid, 'devices', pixelId));
+      await deleteDoc(doc(db, 'users', user.uid, 'devices', xperiaId));
+      await deleteDoc(doc(db, 'users', user.uid, 'devices', galaxyId));
     } catch (error) {
       console.error('Error deleting dummy data:', error);
-      handleFirestoreError(error, OperationType.DELETE, 'devices');
+      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/devices`);
     }
   };
 
@@ -306,8 +303,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
 
   useEffect(() => {
     const q = query(
-      collection(db, 'devices'),
-      where('userId', '==', user.uid)
+      collection(db, 'users', user.uid, 'devices')
     );
 
     const unsubscribe = onSnapshot(
@@ -328,7 +324,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       },
       (error) => {
         setLoading(false);
-        handleFirestoreError(error, OperationType.LIST, 'devices');
+        handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/devices`);
       }
     );
 

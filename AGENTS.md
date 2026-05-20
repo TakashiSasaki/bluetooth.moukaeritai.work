@@ -40,7 +40,7 @@ Execute the following native scripts exactly as defined in `package.json`:
 - **No Unused Dependencies**: Do NOT reintroduce template relics (like `@google/genai`, `dotenv`, `express`, `react-markdown`, etc.).
 - **No Env Secrets**: Do NOT rebuild `.env.example` using outdated environment references (`GEMINI_API_KEY`, `APP_URL`). All configurations are stored locally inside `firebase-applet-config.json`. Do NOT rotate keys or publish secrets.
 - **Authentication Resilience**: Maintain existing features for both **Google Sign-In** and **Anonymous Authentication**.
-- **Schema Paths Integrity**: Keep devices under `/devices/{deviceId}` collection paths exactly as they are currently configured. Do NOT move them to `/users/{uid}/devices` during this phase.
+- **Schema Paths Integrity**: Canonical device path is now `/users/{uid}/devices/{deviceId}`. Do NOT reintroduce the obsolete root-level `/devices` collection path for normal app reads, writes, deletes, or listings. The dynamic path variable `uid` serves as the primary authorization boundary. User data is fully isolated from other authenticated users. Device documents do not require/contain the redundant `userId` field; client writes should not include it, as path-level validation is authoritative.
 - **No Native Android Package Modification**: No native Android development or Kotlin changes should be performed in the workspace.
 - **Android Platform Limitations**: Do not assume consumer Android devices can toggle Bluetooth programmatically. Treat `requestBluetoothPower` strictly as a requested intent state.
 
@@ -59,21 +59,22 @@ Verify the target parameters match the deployment properties:
 - **No Missing Icons**: `public/manifest.json` currently has no icons array structure. Keep it clean or add local images directly to avoid broken offline-install references on device home screens.
 - **Custom Service Worker**: `public/sw.js` utilizes a custom, streamlined Network-First & Cache-First navigation solution for same-origin static assets. Do NOT compile or rewrite it into Workbox.
 
-## 🔒 Completed Security Rules Hardening (Phase 3)
-We have successfully hardened `firestore.rules` under the current `/devices/{deviceId}` path:
-1. **Strict Key Allowlists**: Prevents arbitrary field injection on both creation and updates using standard empty diff sets (`incoming().diff({}).affectedKeys().hasOnly([...])`).
-2. **Strict Types & Length Ranges**: Validates types for all fields and sizes (`deviceName` is <= 100 chars, `userId` matches `request.auth.uid`, `bluetoothConnected` is `bool`).
-3. **Array Bounding Restrictions**:
+## 🔒 Completed Security Rules Hardening (Phase 4A)
+We have successfully hardened `firestore.rules` under the user-scoped `/users/{uid}/devices/{deviceId}` path:
+1. **Strict Path-Based Ownership (Isolation)**: Access is bounded by path variable `{uid}` matches `request.auth.uid`. Users can only select, create, update, or remove their own nested items.
+2. **Lean Document Schema**: Device documents no longer contain or require the redundant `userId` field. Ownership is represented entirely by the path `/users/{uid}/devices/{deviceId}`.
+3. **Strict Key Allowlists**: Prevents arbitrary field injection on both creation and updates using standard empty diff sets (`incoming().diff({}).affectedKeys().hasOnly([...])`).
+4. **Strict Types & Length Ranges**: Validates types for all fields and sizes (`deviceName` is <= 100 chars, `bluetoothConnected` is `bool`).
+5. **Array Bounding Restrictions**:
    - `connectedDevices`: maximum 20 entries.
    - `allDevices`: maximum 50 entries.
    - `disconnectRequests`: maximum 20 entries.
-4. **Bluetooth MAC Address Regex**: Validates representation format (`^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`) for `address` fields and `disconnectRequests` string values.
-5. **Typing Enumeration Sanity**: Restricts device classification `type` values exactly to the allowed list: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
-6. **First-Element Validation (Partial Array Validation)**: Inspects and validates the structure, nested key allowlist, and data types of the first element of list structures when non-empty as a practical representative compromise due to the known limitations of Firestore Security Rules around array looping. Future agents must not assume every element in `connectedDevices`/`allDevices` is validated; application-side validation or sub-collection migration is recommended.
+6. **Bluetooth MAC Address Regex**: Validates representation format (`^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`) for `address` fields and `disconnectRequests` string values.
+7. **Typing Enumeration Sanity**: Restricts device classification `type` values exactly to the allowed list: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
+8. **First-Element Validation (Partial Array Validation)**: Inspects and validates the structure, nested key allowlist, and data types of the first element of list structures when non-empty as a practical representative compromise due to the known limitations of Firestore Security Rules around array looping. Future agents must not assume every element in `connectedDevices`/`allDevices` is validated; application-side validation or sub-collection migration is recommended.
 
-## 🚀 Future Phase 4 Schema Migration & Isolation Goals
+## 🚀 Future Phase 4B & 5 Schema Migration & Isolation Goals
 Use these specifications to guide future database schema iterations:
-1. **Sub-resource Migration Plan**: Migrate standard entries to user nested structures (`/users/{uid}/devices/{deviceId}`) to naturally inherit secure scope policies.
-2. **Command / Telemetry Separation**: Migrate control parameters (such as `requestBluetoothPower` and `disconnectRequests`) to a distinct requests collection to minimize write overhead on telemetry updates.
-3. **Full Per-Element Array Validation**: Implement individual document/sub-collection designs for robust per-element validation.
+1. **Command / Telemetry Separation**: Migrate control parameters (such as `requestBluetoothPower` and `disconnectRequests`) to a distinct requests collection to minimize write overhead on telemetry updates.
+2. **Full Per-Element Array Validation**: Implement individual document/sub-collection designs for robust per-element validation.
 

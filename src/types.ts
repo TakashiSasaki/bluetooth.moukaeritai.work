@@ -1,7 +1,7 @@
 export interface BluetoothDevice {
   name: string;
   address: string;
-  type?: string; // e.g., 'AUDIO', 'COMPUTER', 'PHONE', 'WEARABLE'
+  type?: string; // Allowed values: 'AUDIO', 'COMPUTER', 'PHONE', 'WEARABLE', 'OTHER'
   firstConnectedAt?: number; // Timestamp first detected
   lastConnectedAt?: number;  // Timestamp last connected
   lastDisconnectedAt?: number; // Timestamp last disconnected
@@ -10,7 +10,6 @@ export interface BluetoothDevice {
 
 export interface Device {
   id: string;
-  userId: string;
   deviceName: string;
   bluetoothConnected: boolean; // True if at least one device is connected
   bluetoothPoweredOn?: boolean;  // Is the Bluetooth adapter itself turned on/active?

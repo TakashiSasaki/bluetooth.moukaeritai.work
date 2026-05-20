@@ -14,10 +14,6 @@
       "description": "An Android device reporting its Bluetooth connection status and active sub-devices.",
       "type": "object",
       "properties": {
-        "userId": {
-          "type": "string",
-          "description": "The UID of the user who owns the device"
-        },
         "deviceName": {
           "type": "string",
           "description": "The name of the device"
@@ -44,11 +40,11 @@
           "description": "Timestamp of the last status update"
         }
       },
-      "required": ["userId", "deviceName", "bluetoothConnected", "lastUpdated"]
+      "required": ["deviceName", "bluetoothConnected", "lastUpdated"]
     }
   },
   "firestore": {
-    "/devices/{deviceId}": {
+    "/users/{uid}/devices/{deviceId}": {
       "schema": { "$ref": "#/entities/Device" },
       "description": "A collection of devices owned by users."
     }

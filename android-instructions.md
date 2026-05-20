@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val currentTime = System.currentTimeMillis()
-        val docRef = db.collection("devices").document(deviceId)
+        val docRef = db.collection("users").document(currentUser.uid).collection("devices").document(deviceId)
 
         // Read the existing document inside a transaction to merge historical values correctly
         db.runTransaction { transaction ->
@@ -200,7 +200,6 @@ class MainActivity : ComponentActivity() {
             val finalAllDevices = historicalMap.values.toList()
 
             val docData = hashMapOf(
-                "userId" to currentUser.uid,
                 "deviceName" to deviceName,
                 "bluetoothConnected" to isConnected,
                 "bluetoothPoweredOn" to (adapter?.isEnabled == true),
@@ -228,7 +227,7 @@ class MainActivity : ComponentActivity() {
     private fun listenForRemotePowerCommands() {
         val currentUser = auth.currentUser ?: return
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        val docRef = db.collection("devices").document(deviceId)
+        val docRef = db.collection("users").document(currentUser.uid).collection("devices").document(deviceId)
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return
 
         docRef.addSnapshotListener { snapshot, e ->
@@ -277,8 +276,7 @@ class MainActivity : ComponentActivity() {
     // Since we want both Web App and Android App to view status of all paired devices under this account:
     private fun startListeningToOtherDevices() {
         val currentUser = auth.currentUser ?: return
-        db.collection("devices")
-            .whereEqualTo("userId", currentUser.uid)
+        db.collection("users").document(currentUser.uid).collection("devices")
             .addSnapshotListener { snapshots, e ->
                 if (e != null) {
                     println("Listen failed: $e")
