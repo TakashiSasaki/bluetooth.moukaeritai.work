@@ -27,10 +27,10 @@ This guide outlines the system architecture, development rules, constraints, and
 
 ## 🛠️ Development & Validation Scripts
 > [!IMPORTANT]
-> `package-lock.json` is intentionally absent and must remain pending until the final stabilization / release-preparation phase. Do not regenerate or commit `package-lock.json` in intermediate phases unless explicitly instructed by the repository owner. Use `npm install`, not `npm ci`. If `npm install` creates `package-lock.json` locally, leave it uncommitted or remove it before committing. `npm ci` should only be used after the lockfile is intentionally regenerated and committed in the final stabilization phase.
+> `package-lock.json` has been intentionally regenerated for the final stabilization phase. Use `npm ci` for reliable and reproducible builds instead of `npm install` when you need to respect the exact lockfile versions.
 
 Execute the following native scripts exactly as defined in `package.json`:
-- `npm install` — Installs package dependencies.
+- `npm ci` / `npm install` — Installs package dependencies. (Prefer `npm ci` in this stabilized state)
 - `npm run dev` — Bootstraps developer sandbox server at `http://localhost:3000`.
 - `npm run lint` — Executes static TypeScript compile checks (`tsc --noEmit`).
 - `npm run build` — Bundles optimization build assets into raw output root `dist/`.
@@ -95,5 +95,5 @@ Use these specifications to guide future database schema iterations:
    - Do not weaken terminal command immutability rules. Terminal immutability applies to updates/reopening of terminal command documents, not to owner deletion.
    - Do not implement automatic deletion or Cloud Functions unless explicitly requested. Terminal commands are retained for approximately 7 days by general policy.
    - Do not treat commands as compliance-grade immutable audit logs. Do not remove owner delete permission from command documents unless explicitly instructed.
-   - `package-lock.json` is intentionally absent and must remain pending until the final stabilization phase.
+   - `package-lock.json` is now present for the final stabilization phase; prefer `npm ci` for dependency installation.
 
