@@ -1,10 +1,10 @@
 import { User } from 'firebase/auth';
-import { collection, onSnapshot, query, where, Timestamp, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase/config';
 import { OperationType, handleFirestoreError } from '../firebase/error';
-import { Device, BluetoothDevice } from '../types';
-import { Bluetooth, BluetoothOff, LogOut, Smartphone, Clock, User as UserIcon, ChevronDown, ChevronUp, CheckCircle, XCircle, FileText, LayoutDashboard, ChevronRight, Database, Trash2, Unlink } from 'lucide-react';
+import { Device } from '../types';
+import { Bluetooth, BluetoothOff, LogOut, Smartphone, Clock, User as UserIcon, ChevronDown, ChevronUp, CheckCircle, XCircle, FileText, LayoutDashboard, Database, Trash2, Unlink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
 

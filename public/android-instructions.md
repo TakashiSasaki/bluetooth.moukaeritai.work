@@ -3,7 +3,7 @@
 To connect your Android device's Bluetooth status and remote controls to the **Bluetooth Link** dashboard, follow these steps:
 
 1. Create a new "Empty Activity" project in Android Studio.
-2. In the Firebase console (for project `museum-6f112`), add an Android app.
+2. In the Firebase console (for project `moukaeritaid`), add an Android app.
 3. Download the `google-services.json` file and place it in your Android app's `app/` directory.
 4. Add the Firebase dependencies in your `app/build.gradle`:
 
@@ -95,6 +95,10 @@ class MainActivity : ComponentActivity() {
         
         // Initial sync
         syncBluetoothStatusToFirebase()
+
+        // 3. Initiate Firestore Listeners for Syncing status options
+        listenForRemotePowerCommands()
+        startListeningToOtherDevices()
     }
 
     private val bluetoothReceiver = object : BroadcastReceiver() {
@@ -215,7 +219,14 @@ class MainActivity : ComponentActivity() {
     }
 
     // --- REMOTE BLUETOOTH ADAPTER POWER CONTROLLER ---
-    // Listens to Firestore remote command field "requestBluetoothPower" and updates physical Bluetooth state.
+    //
+    // ⚠️ CRITICAL ANDROID PLATFORM LIMITATION WARNING:
+    // BluetoothAdapter.enable() and BluetoothAdapter.disable() are deprecated on modern Android
+    // versions and strictly restricted for third-party user-installed apps (Android 10+ / API 29+).
+    // Normal apps should NOT rely on programmatic Bluetooth toggling in production.
+    // Recommended implementations should monitor native Bluetooth adapter changes and write
+    // status telemetry only. Treat remote controls strictly as experimental instruction queues
+    // that require specialized platform permissions (e.g. Device Owner / system privileges) to run.
     private fun listenForRemotePowerCommands() {
         val currentUser = auth.currentUser ?: return
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
