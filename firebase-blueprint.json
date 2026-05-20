@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "BluetoothDevice": {
+      "title": "BluetoothDevice",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["name", "address"]
+    },
+    "Device": {
+      "title": "Device",
+      "description": "An Android device reporting its Bluetooth connection status and active sub-devices.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who owns the device"
+        },
+        "deviceName": {
+          "type": "string",
+          "description": "The name of the device"
+        },
+        "bluetoothConnected": {
+          "type": "boolean",
+          "description": "Whether the device currently has an active Bluetooth connection"
+        },
+        "bluetoothPoweredOn": {
+          "type": "boolean",
+          "description": "Whether the Android Bluetooth adapter itself is active"
+        },
+        "requestBluetoothPower": {
+          "type": "boolean",
+          "description": "Desired state of Bluetooth adapter power requested by remote monitors"
+        },
+        "connectedDevices": {
+          "type": "array",
+          "items": { "$ref": "#/entities/BluetoothDevice" },
+          "description": "List of connected accessory Bluetooth devices"
+        },
+        "lastUpdated": {
+          "type": "number",
+          "description": "Timestamp of the last status update"
+        }
+      },
+      "required": ["userId", "deviceName", "bluetoothConnected", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "/devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/Device" },
+      "description": "A collection of devices owned by users."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Bluetooth Link",
+  "description": "Android端末のBluetooth接続状況のリアルタイム監視に加え、アダプタ電源のリモート操作と詳細なペアリング履歴管理を行える双方向連携システム。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

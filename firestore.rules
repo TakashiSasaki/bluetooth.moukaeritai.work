@@ -1,0 +1,76 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // -------------------------------------------------------------------------
+    // Global Safety Net
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Global Helpers
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      // Since anonymous authentication doesn't have verified emails, we allow any valid authenticated user
+      return isSignedIn();
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation Blueprints
+    // -------------------------------------------------------------------------
+    function isValidDevice(data) {
+      return data.keys().hasAll(['userId', 'deviceName', 'bluetoothConnected', 'lastUpdated'])
+          && data.userId == request.auth.uid
+          && data.deviceName is string
+          && data.deviceName.size() > 0
+          && data.deviceName.size() <= 100
+          && data.bluetoothConnected is bool;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collections
+    // -------------------------------------------------------------------------
+    match /devices/{deviceId} {
+      // READ: Users can only read their own devices
+      allow get: if isVerified() && isValidId(deviceId) && existing().userId == request.auth.uid;
+      allow list: if isVerified() && existing().userId == request.auth.uid;
+
+      // CREATE: Users can only create devices for themselves
+      allow create: if isVerified() 
+                    && isValidId(deviceId) 
+                    && isValidDevice(incoming())
+                    && incoming().lastUpdated == request.time;
+
+      // UPDATE: Only allow explicitly updating allowed fields and keeping userId constant
+      allow update: if isVerified() 
+                    && isValidId(deviceId) 
+                    && existing().userId == request.auth.uid
+                    && isValidDevice(incoming())
+                    && incoming().userId == existing().userId
+                    && (incoming().lastUpdated == request.time || incoming().lastUpdated == existing().lastUpdated)
+                    // Action: Update Status
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['bluetoothConnected', 'lastUpdated', 'deviceName', 'connectedDevices', 'allDevices', 'bluetoothPoweredOn', 'requestBluetoothPower', 'disconnectRequests']);
+
+      // DELETE: Users can delete their own devices
+      allow delete: if isVerified() && isValidId(deviceId) && existing().userId == request.auth.uid;
+    }
+  }
+}
