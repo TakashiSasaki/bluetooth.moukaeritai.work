@@ -1,0 +1,64 @@
+// app/build.gradle の依存関係及びプラグイン構成例です。
+// Android Studioでプロジェクトを作成後、こちらを参考に build.gradle を設定してください。
+
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.google.gms.google-services' // Firebase用プラグイン
+}
+
+android {
+    namespace 'com.example.devicemonitor'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.devicemonitor"
+        minSdk 26 // Oreo (Android 8.0) 以上推奨（通知チャンネル、フォアグラウンドサービス対応）
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    buildFeatures {
+        viewBinding true // XMLレイアウトをバインディングする場合に便利です
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // Firebase BOM (バージョン管理を一元化)
+    implementation platform('com.google.firebase:firebase-bom:32.7.2')
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+    implementation 'com.google.firebase:firebase-auth-ktx'
+    implementation 'com.google.firebase:firebase-firestore-ktx'
+    
+    // Play Services Google Sign-In
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+
+    // 画像読み込み (アバター画像用)
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
