@@ -109,6 +109,10 @@ We have successfully separated interactive operator control queues from primary 
 6. **Command Status Lifecycle Policy (Phase 5A Completed)**: Restricts and validates intermediate state transitions on Firestore documents:
    - **State Space**: Consists of `pending` (initial dashboard request), `acknowledged` (companion active processing phase), and terminal states (`completed`, `failed`, `unsupported`).
    - **Immutable Terminals**: Firestore rules prevent modifications to any commands that have reached terminal statuses, protecting the audit log from subsequent corruption or accidental state reopening. Future extensions such as `expiresAt` or `retryOf` remain deferred.
+7. **Command Retention & Stale Policy (Phase 5B)**: Defines UI state and historical log maintenance:
+   - **Stale Pending Status**: A `pending` command that is older than 10 minutes is considered stale from an operational/UI perspective. "Stale" is not a dedicated Firestore status.
+   - **Document Retention Policy**: Terminal command documents (`completed`, `failed`, `unsupported`) are retained for approximately 7 days by policy. Automatic deletion is not currently implemented in this phase.
+   - **Future Cleanup Operations**: Future updates may implement routine cleanup logic via manual dashboard UI actions, scheduled backend processes, or Firebase extensions.
 
 ### 📦 Pre-Production Data Cleanup Note
 - This application is pre-production; therefore, no database migration script is provided.

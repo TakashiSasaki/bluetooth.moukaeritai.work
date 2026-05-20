@@ -223,14 +223,15 @@ class MainActivity : ComponentActivity() {
     // --- REMOTE BLUETOOTH ADAPTER POWER & ACCESSORY DISCONNECT COMMANDS ---
     //
     // ⚙️ COMMAND LIFECYCLE STATE MACHINE:
-    // - 'pending': Instantiated initially by the Web Dashboard operator.
+    // - 'pending': Instantiated initially by the Web Dashboard operator. Pending commands older than 10 minutes may be considered 'stale' by the UI. Companion should process pending commands promptly.
     // - 'acknowledged': (Optional) Marked by companion Android app when processing begins.
-    // - 'completed' / 'failed' / 'unsupported': Terminal states. Reopening terminal commands is forbidden.
+    // - 'completed' / 'failed' / 'unsupported': Terminal states. Reopening terminal commands is forbidden. Terminal states are immutable.
     // - ⚠️ RULE ENFORCEMENT: All updates must omit null fields. On 'failed', errorMessage MUST be a
     //   non-null String. On 'completed', use non-null 'resultMessage'.
     //
     // Android device listens for pending commands under `/users/{uid}/devices/{deviceId}/commands`
     // with status == "pending". Once processed, it updates status, updatedAt, and results.
+    // Terminal command documents will be retained for ~7 days by policy. No automatic deletion is required from Android currently.
     //
     // ⚠️ CRITICAL ANDROID PLATFORM LIMITATION WARNING:
     // BluetoothAdapter.enable() and BluetoothAdapter.disable() are deprecated on modern Android

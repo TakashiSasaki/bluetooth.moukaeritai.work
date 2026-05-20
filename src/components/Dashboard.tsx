@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { collection, onSnapshot, query, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, addDoc, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, addDoc, where, orderBy, limit } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase/config';
 import { OperationType, handleFirestoreError } from '../firebase/error';
@@ -26,6 +26,8 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
 
   const [pendingCommands, setPendingCommands] = useState<Record<string, string[]>>({}); // deviceId -> pending accessory addresses
   const [pendingPowerRequests, setPendingPowerRequests] = useState<Record<string, boolean>>({}); // deviceId -> pending power requests
+  const [recentCommands, setRecentCommands] = useState<Record<string, any[]>>({}); // deviceId -> recent commands (last 5)
+  const [showCommandHistory, setShowCommandHistory] = useState<Record<string, boolean>>({}); // deviceId -> expanded states
 
   useEffect(() => {
     const unsubscribes: (() => void)[] = [];
@@ -65,6 +67,33 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       });
       
       unsubscribes.push(unsub);
+
+      // Fetch last 5 recent commands to display in history logs feed
+      const qRecent = query(
+        collection(db, 'users', user.uid, 'devices', device.id, 'commands'),
+        orderBy('requestedAt', 'desc'),
+        limit(5)
+      );
+
+      const unsubRecent = onSnapshot(qRecent, (snapshot) => {
+        const list: any[] = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          list.push({
+            id: docSnap.id,
+            ...data,
+            requestedAt: data.requestedAt?.toMillis ? data.requestedAt.toMillis() : (data.requestedAt || Date.now())
+          });
+        });
+        setRecentCommands(prev => ({
+          ...prev,
+          [device.id]: list
+        }));
+      }, (error) => {
+        console.error(`Error listening to recent commands for device ${device.id}:`, error);
+      });
+
+      unsubscribes.push(unsubRecent);
     });
     
     return () => {
@@ -131,6 +160,21 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
           }
         }
         await updateDoc(deviceRef, updatePayload);
+
+        // Add mock command log in the UI for the dummy device in real-time
+        setRecentCommands(prev => {
+          const list = prev[deviceId] ? [...prev[deviceId]] : [];
+          list.unshift({
+            id: `mock_cmd_${Date.now()}`,
+            type: 'SET_BLUETOOTH_POWER',
+            status: 'completed',
+            requestedAt: Date.now(),
+            updatedAt: Date.now(),
+            targetPower: targetState,
+            resultMessage: `Bluetooth power state set to ${targetState ? 'ON' : 'OFF'} successfully.`
+          });
+          return { ...prev, [deviceId]: list.slice(0, 5) };
+        });
       } else {
         // [本物デバイス] commands サブコレクションに新規コマンドを追加
         const commandsColRef = collection(db, 'users', user.uid, 'devices', deviceId, 'commands');
@@ -182,6 +226,21 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
             allDevices: updatedAll,
             bluetoothConnected,
             lastUpdated: serverTimestamp()
+          });
+
+          // Add mock command log in the UI for the dummy device in real-time
+          setRecentCommands(prev => {
+            const list = prev[deviceId] ? [...prev[deviceId]] : [];
+            list.unshift({
+              id: `mock_cmd_${Date.now()}`,
+              type: 'DISCONNECT_ACCESSORY',
+              status: 'completed',
+              requestedAt: Date.now(),
+              updatedAt: Date.now(),
+              accessoryAddress: address,
+              resultMessage: `Accessory at ${address} disconnected successfully.`
+            });
+            return { ...prev, [deviceId]: list.slice(0, 5) };
           });
         }
       } else {
@@ -370,6 +429,63 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
         devs.sort((a, b) => a.deviceName.localeCompare(b.deviceName));
         setDevices(devs);
         setLoading(false);
+
+        // Pre-populate mock command history for dummy devices for high-fidelity simulation
+        setRecentCommands(prev => {
+          const updated = { ...prev };
+          const nowMs = Date.now();
+          devs.forEach(d => {
+            if (d.id.startsWith('dummy_') && !updated[d.id]) {
+              if (d.id.includes('pixel')) {
+                updated[d.id] = [
+                  {
+                    id: 'mock_cmd_1',
+                    type: 'DISCONNECT_ACCESSORY',
+                    status: 'completed',
+                    requestedAt: nowMs - 2 * 60 * 60 * 1000,
+                    updatedAt: nowMs - 2 * 60 * 60 * 1000,
+                    accessoryAddress: 'A4:83:E7:5C:1F:D2',
+                    resultMessage: 'MacBook Pro 16 " disconnected successfully'
+                  },
+                  {
+                    id: 'mock_cmd_2',
+                    type: 'SET_BLUETOOTH_POWER',
+                    status: 'completed',
+                    requestedAt: nowMs - 5 * 60 * 60 * 1000,
+                    updatedAt: nowMs - 5 * 60 * 60 * 1000,
+                    targetPower: true,
+                    resultMessage: 'Bluetooth enabled successfully'
+                  }
+                ];
+              } else if (d.id.includes('xperia')) {
+                updated[d.id] = [
+                  {
+                    id: 'mock_cmd_3',
+                    type: 'SET_BLUETOOTH_POWER',
+                    status: 'unsupported',
+                    requestedAt: nowMs - 20 * 60 * 1000,
+                    updatedAt: nowMs - 20 * 60 * 1000,
+                    targetPower: true,
+                    errorMessage: 'Platform restricted Bluetooth toggle for user-installed app.'
+                  }
+                ];
+              } else {
+                updated[d.id] = [
+                  {
+                    id: 'mock_cmd_4',
+                    type: 'SET_BLUETOOTH_POWER',
+                    status: 'failed',
+                    requestedAt: nowMs - 3 * 60 * 60 * 1000,
+                    updatedAt: nowMs - 3 * 60 * 60 * 1000,
+                    targetPower: false,
+                    errorMessage: 'Bluetooth adapter failed to turn off.'
+                  }
+                ];
+              }
+            }
+          });
+          return updated;
+        });
       },
       (error) => {
         setLoading(false);
@@ -661,6 +777,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
               const stale = isStale(device.lastUpdated);
               // If stale, we might not trust the bluetooth true status, but let's just indicate it's offline.
               const connected = device.bluetoothConnected && !stale;
+              const hasStalePending = recentCommands[device.id]?.some(c => c.status === 'pending' && (Date.now() - c.requestedAt > 10 * 60 * 1000)) || false;
 
               return (
                 <motion.div
@@ -872,6 +989,63 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                         <Clock className="w-4 h-4 text-slate-400" />
                         <span>{formatDistanceToNow(device.lastUpdated, { addSuffix: true })}</span>
                       </div>
+                    </div>
+
+                    {hasStalePending && (
+                      <div className="flex bg-amber-50 text-amber-700 p-2 rounded-lg text-xs font-medium border border-amber-200 mt-2 gap-2 items-center">
+                        <Clock className="w-4 h-4 shrink-0 text-amber-500" />
+                        <span>Command sent over 10 mins ago is still pending (stale).</span>
+                      </div>
+                    )}
+
+                    {/* Historical Command Logs (Collapsible) */}
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <button
+                        onClick={() => setShowCommandHistory((prev) => ({ ...prev, [device.id]: !prev[device.id] }))}
+                        className="w-full flex items-center justify-between py-2 px-3 text-xs font-semibold text-slate-600 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-100"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-slate-400" />
+                          Recent Remote Commands ({recentCommands[device.id]?.length || 0})
+                        </span>
+                        {showCommandHistory[device.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+
+                      <AnimatePresence>
+                        {showCommandHistory[device.id] && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden mt-2"
+                          >
+                            <div className="space-y-2 bg-slate-50 p-2 rounded-lg border border-slate-200 text-[10px] max-h-48 overflow-y-auto">
+                              {recentCommands[device.id] && recentCommands[device.id].length > 0 ? (
+                                recentCommands[device.id].map((cmd, cIdx) => (
+                                  <div key={cIdx} className="bg-white p-2 rounded border border-slate-100 flex flex-col gap-1">
+                                    <div className="flex justify-between items-start">
+                                      <span className="font-bold text-slate-700">{cmd.type}</span>
+                                      <span className={`px-1.5 py-0.5 rounded font-bold uppercase tracking-wider text-[8px] ${
+                                        cmd.status === 'pending' ? (Date.now() - cmd.requestedAt > 10 * 60 * 1000 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700') :
+                                        cmd.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                        cmd.status === 'acknowledged' ? 'bg-indigo-100 text-indigo-700' :
+                                        'bg-red-100 text-red-700'
+                                      }`}>
+                                        {cmd.status === 'pending' && (Date.now() - cmd.requestedAt > 10 * 60 * 1000) ? 'stale' : cmd.status}
+                                      </span>
+                                    </div>
+                                    <div className="text-slate-400 font-mono text-[9px]">{formatTime(cmd.requestedAt)}</div>
+                                    {cmd.resultMessage && <div className="text-green-600 font-medium">{cmd.resultMessage}</div>}
+                                    {cmd.errorMessage && <div className="text-red-600 font-medium">{cmd.errorMessage}</div>}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-slate-400 italic text-center text-[10px] py-1">No recent commands found.</div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                   

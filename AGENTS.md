@@ -84,10 +84,15 @@ We have introduced a per-device commands subcollection path (`/users/{uid}/devic
 Use these specifications to guide future database schema iterations:
 1. **Full Per-Element Array Validation**: Implement individual document/sub-collection designs for robust per-element validation.
 
-## 🔒 Documented Same-UID Design & Lifecycle Policy (Phase 5A Completed)
+## 🔒 Documented Same-UID Design & Lifecycle Policy (Phase 5A & 5B Completed)
 1. **No Unrequested Device Identity Setup**: Do not introduce separate client tokens, service account access, or third-party multi-tenant administration layers unless explicitly requested.
 2. **Path-Based Authorization Boundary**: Retain `request.auth.uid == uid` as the primary authorization check. Device agents must share/authenticate with this exact same user context.
 3. **Command Lifecycle Rule Compliance**:
    - Newly created commands must strictly target `status == "pending"`.
    - Modifying a command that has reached a terminal status (`completed`, `failed`, `unsupported`) is forbidden. Transition is only valid if `existing().status` is either `pending` or `acknowledged`.
+4. **Command Retention & Stale State Rules**:
+   - Do not add a "stale" status to Firestore command documents unless explicitly requested. "Stale" is purely a UI visual state indicating `pending` > 10 minutes.
+   - Do not weaken terminal command immutability rules.
+   - Do not implement automatic deletion or Cloud Functions unless explicitly requested. Terminal commands are retained for approximately 7 days by general policy.
+   - Keep `package-lock.json` absent unless explicitly instructed otherwise.
 
