@@ -194,7 +194,7 @@ class BluetoothMonitorService : Service() {
             return
         }
 
-        val docRef = db.collection("devices").document(deviceId)
+        val docRef = db.collection("users").document(currentUser.uid).collection("devices").document(deviceId)
 
         // トランザクション処理を利用して、履歴 (allDevices) をマージ
         db.runTransaction { transaction ->
