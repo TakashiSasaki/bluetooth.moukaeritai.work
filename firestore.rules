@@ -48,6 +48,13 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     // Collections
     // -------------------------------------------------------------------------
+    // TODO (Phase 3 Hardening / Future Scope):
+    // - Validate connectedDevices and allDevices element shape (check inner fields).
+    // - Limit array lengths to prevent DoS vector (e.g., maximum 50 paired devices in allDevices).
+    // - Validate disconnectRequests as a bounded string array.
+    // - Restrict device class type values specifically to: AUDIO, COMPUTER, PHONE, WEARABLE, OTHER.
+    // - Consider moving devices collection to nested user paths: /users/{uid}/devices/{deviceId}.
+    // -------------------------------------------------------------------------
     match /devices/{deviceId} {
       // READ: Users can only read their own devices
       allow get: if isVerified() && isValidId(deviceId) && existing().userId == request.auth.uid;

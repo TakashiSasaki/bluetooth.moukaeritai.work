@@ -101,8 +101,7 @@ export default function App() {
   const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const domainsToAuthorize = [
     currentDomain,
-    'ais-dev-m2xdgdipcs3ud2jmfhbluk-800440726721.asia-east1.run.app',
-    'ais-pre-m2xdgdipcs3ud2jmfhbluk-800440726721.asia-east1.run.app',
+    'localhost',
     'bluetooth-moukaeritai-work.web.app',
     'bluetooth-moukaeritai-work.firebaseapp.com',
     'bluetooth.moukaeritai.work'

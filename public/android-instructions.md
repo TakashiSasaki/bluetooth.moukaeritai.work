@@ -307,9 +307,10 @@ For each device entry in the dashboard collection, render a highly polished card
 - **Device Information Header**:
   - Displays Device Name (`deviceName`) and Document ID.
   - Displays the current physical power state of the Bluetooth adapter (`bluetoothPoweredOn`: Active or Inactive).
-- **Remote Power Switch (ON/OFF Remote Controls)**:
+- **Remote Power Switch (ON/OFF Remote Control Request)**:
   - Displays an interactive switch or toggle button linked to `requestBluetoothPower`.
-  - When toggled, it updates `requestBluetoothPower` in the Firestore document, which triggers the target native device's programmatic on/off callback (as implemented in `listenForRemotePowerCommands`).
+  - When toggled, it updates `requestBluetoothPower` in the Firestore document as a requested state intent.
+  - ⚠️ **Important Platform Limitation**: The native Android application listens to this request field. However, on standard consumer Android devices, user-installed apps cannot programmatically toggle Bluetooth power without human interaction due to OS security policies. The client should not assume it can change physical power state unless running under specialized conditions (e.g. Device Owner, system apps). In standard configurations, client apps may show user-facing instructions or log the intent as requests to ignore or handle manually.
 - **Active Connected Accessories**:
   - Displays a high-contrast sub-list displaying currently active Bluetooth accessories (`connectedDevices`), along with their **Device Class Type tag** (e.g., `AUDIO`, `COMPUTER`, `WEARABLE`).
 - **Device Coupling History (ペアリング履歴 - One-Tap Expandable)**:
