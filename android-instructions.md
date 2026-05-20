@@ -240,17 +240,31 @@ class MainActivity : ComponentActivity() {
             val currentPower = adapter.isEnabled
 
             if (requestedPower != currentPower) {
+                println("Received remote Bluetooth power request: $requestedPower")
                 try {
-                    if (requestedPower) {
-                        // Request to turn ON bluetooth
+                    // NOTE: This programmatic switch is privileged-device/system-app pseudocode.
+                    // On consumer Android 10+ devices, calling enable() or disable() directly
+                    // will be ignored or throw a SecurityException.
+                    //
+                    // TODO (For Standard Consumer Devices):
+                    // Instead of attempting programmatic toggle, standard consumer application
+                    // implementations should trigger a user-facing notification or launch the native Bluetooth
+                    // settings intent (BluetoothAdapter.ACTION_REQUEST_ENABLE) for explicit human confirmation.
+                    
+                    println("Attempting privileged Bluetooth power change (might fail or be ignored)...")
+                    val success = if (requestedPower) {
                         adapter.enable()
                     } else {
-                        // Request to turn OFF bluetooth
                         adapter.disable()
                     }
-                    println("Bluetooth state changed programmatically to: $requestedPower")
+                    
+                    if (success) {
+                        println("Programmatic status change call succeeded, checking physical state propagation...")
+                    } else {
+                        println("Platform returned failure for programmatic power change: Bluetooth power control is restricted on normal apps.")
+                    }
                 } catch (ex: Exception) {
-                    println("Error executing Bluetooth action: $ex")
+                    println("Exception during privileged Bluetooth power change action: $ex (Programmatic Bluetooth control is restricted on normal devices)")
                 }
             }
         }

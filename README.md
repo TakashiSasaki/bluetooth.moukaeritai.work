@@ -55,7 +55,7 @@ The companion app and web dashboard expect the following auth channels to be ena
 - **Anonymous Authentication** (for fast companion-app provisioning during initial setup or guest flow testing)
 
 ### 3. Authorized OAuth Domains
-To ensure Google Sign-In and frame embedding function correctly, authorize the following domains inside your Firebase Auth console:
+To ensure Google Sign-In functions correctly, authorize the following domains inside your Firebase Auth console:
 - `bluetooth.moukaeritai.work`
 - `bluetooth-moukaeritai-work.web.app`
 - `bluetooth-moukaeritai-work.firebaseapp.com`
@@ -84,5 +84,23 @@ It is critical to evaluate the following platform restrictions before planning a
 
 ## 📅 Remaining Task List & Assets
 
-- [ ] **PWA Icons**: Custom visual files for `pwa-192x192.png` and `pwa-512x512.png` are referenced inside `/public/manifest.json`. Place your preferred binary images there to complete installation branding on mobile home screens.
+- [ ] **PWA Icons Integration**: Add corporate or custom brand assets for desktop and mobile homescreens (e.g., `pwa-192x192.png` and `pwa-512x512.png`), re-enabling the icons array definition inside `/public/manifest.json`.
 - [ ] **Android App Build**: Compile and deploy the companion client service within Android Studio using the instructions inside `/android-instructions.md`.
+
+---
+
+## 🔒 Future Firestore Schema & Security Hardening Roadmap (Phase 3)
+
+The following schema refinements and security constraints are planned for implementation during the upcoming Phase 3 release:
+
+1. **Strict Field Elements Validation**:
+   - Enforce validation on `connectedDevices` array element shapes to verify expected properties.
+   - Enforce validation on `allDevices` (paired device list) elements.
+2. **Resource Poisoning and denial-of-wallet Protection**:
+   - Impose strict limits on collection and list array sizes (e.g., maximum of 50 paired devices inside `allDevices`, bounded `disconnectRequests` length).
+   - Impose strict string size limits on Bluetooth hardware addresses (MAC structure length validation or regex format).
+3. **Domain Classification Sanity**:
+   - Restrict accessory types specifically to legal classifications (`AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`).
+4. **Access Control Restructuring**:
+   - Migrate root `/devices/{deviceId}` path to a structured sub-resource architecture: `/users/{uid}/devices/{deviceId}`.
+   - Separate interactive control queues (such as `requestBluetoothPower` and `disconnectRequests`) from state logging and telemetry payloads to isolate writes.
