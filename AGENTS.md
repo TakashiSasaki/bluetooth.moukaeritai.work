@@ -92,7 +92,8 @@ Use these specifications to guide future database schema iterations:
    - Modifying a command that has reached a terminal status (`completed`, `failed`, `unsupported`) is forbidden. Transition is only valid if `existing().status` is either `pending` or `acknowledged`.
 4. **Command Retention & Stale State Rules**:
    - Do not add a "stale" status to Firestore command documents unless explicitly requested. "Stale" is purely a UI visual state indicating `pending` > 10 minutes.
-   - Do not weaken terminal command immutability rules.
+   - Do not weaken terminal command immutability rules. Terminal immutability applies to updates/reopening of terminal command documents, not to owner deletion.
    - Do not implement automatic deletion or Cloud Functions unless explicitly requested. Terminal commands are retained for approximately 7 days by general policy.
+   - Do not treat commands as compliance-grade immutable audit logs. Do not remove owner delete permission from command documents unless explicitly instructed.
    - Keep `package-lock.json` absent unless explicitly instructed otherwise.
 

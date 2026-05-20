@@ -111,7 +111,7 @@ We have successfully separated interactive operator control queues from primary 
    - **Immutable Terminals**: Firestore rules prevent modifications to any commands that have reached terminal statuses, protecting the audit log from subsequent corruption or accidental state reopening. Future extensions such as `expiresAt` or `retryOf` remain deferred.
 7. **Command Retention & Stale Policy (Phase 5B)**: Defines UI state and historical log maintenance:
    - **Stale Pending Status**: A `pending` command that is older than 10 minutes is considered stale from an operational/UI perspective. "Stale" is not a dedicated Firestore status.
-   - **Document Retention Policy**: Terminal command documents (`completed`, `failed`, `unsupported`) are retained for approximately 7 days by policy. Automatic deletion is not currently implemented in this phase.
+   - **Document Retention Policy**: Terminal command documents (`completed`, `failed`, `unsupported`) are retained for approximately 7 days by policy. Automatic deletion is not currently implemented in this phase. Command documents are operational history, not immutable compliance audit records. Owners may delete their own command documents, and the 7-day retention period is an operational guideline, not a hard security guarantee.
    - **Future Cleanup Operations**: Future updates may implement routine cleanup logic via manual dashboard UI actions, scheduled backend processes, or Firebase extensions.
 
 ### 📦 Pre-Production Data Cleanup Note
