@@ -256,22 +256,29 @@ class MainActivity : ComponentActivity() {
                                     adapter.disable()
                                 }
                                 
-                                val status = if (success) "completed" else "failed"
-                                val errMsg = if (success) null else "Platform restricted Bluetooth toggle for user-installed app."
-                                
-                                commandsColRef.document(commandId).update(
-                                    mapOf(
-                                        "status" to status,
-                                        "updatedAt" to FieldValue.serverTimestamp(),
-                                        "errorMessage" to errMsg
+                                if (success) {
+                                    commandsColRef.document(commandId).update(
+                                        mapOf(
+                                            "status" to "completed",
+                                            "updatedAt" to FieldValue.serverTimestamp(),
+                                            "resultMessage" to "Bluetooth power state set to $requestedPower successfully."
+                                        )
                                     )
-                                )
+                                } else {
+                                    commandsColRef.document(commandId).update(
+                                        mapOf(
+                                            "status" to "failed",
+                                            "updatedAt" to FieldValue.serverTimestamp(),
+                                            "errorMessage" to "Platform restricted Bluetooth toggle for user-installed app."
+                                        )
+                                    )
+                                }
                             } catch (ex: Exception) {
                                 commandsColRef.document(commandId).update(
                                     mapOf(
                                         "status" to "failed",
                                         "updatedAt" to FieldValue.serverTimestamp(),
-                                        "errorMessage" to ex.message
+                                        "errorMessage" to (ex.message ?: "Unknown error")
                                     )
                                 )
                             }
@@ -289,7 +296,7 @@ class MainActivity : ComponentActivity() {
                         val address = doc.getString("accessoryAddress") ?: continue
                         println("Received accessory disconnect command for: $address")
                         try {
-                            // Programmatically disconnecting paired profiles (A2DP, HFP, BLE) requires profile proxy proxy/reflection reflection.
+                            // Programmatically disconnecting paired profiles (A2DP, HFP, BLE) requires Bluetooth profile proxy or reflection-based APIs.
                             // If successfully executed physically:
                             println("Executing Bluetooth accessory disconnect reflection for $address...")
                             
@@ -305,7 +312,7 @@ class MainActivity : ComponentActivity() {
                                 mapOf(
                                     "status" to "failed",
                                     "updatedAt" to FieldValue.serverTimestamp(),
-                                    "errorMessage" to ex.message
+                                    "errorMessage" to (ex.message ?: "Unknown error")
                                 )
                             )
                         }
