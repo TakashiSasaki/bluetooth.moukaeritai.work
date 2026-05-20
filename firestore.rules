@@ -33,27 +33,70 @@ service cloud.firestore {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isValidMacAddress(address) {
+      return address is string 
+          && address.size() == 17 
+          && address.matches('^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$');
+    }
+
+    function isValidBluetoothDevice(item) {
+      return item is map
+          && item.keys().hasAll(['name', 'address'])
+          && item.name is string
+          && item.name.size() > 0
+          && item.name.size() <= 100
+          && isValidMacAddress(item.address)
+          && (!item.keys().hasAny(['type']) || (item.type is string && (item.type == 'AUDIO' || item.type == 'COMPUTER' || item.type == 'PHONE' || item.type == 'WEARABLE' || item.type == 'OTHER')))
+          && (!item.keys().hasAny(['firstConnectedAt']) || (item.firstConnectedAt is int || item.firstConnectedAt is float))
+          && (!item.keys().hasAny(['lastConnectedAt']) || (item.lastConnectedAt is int || item.lastConnectedAt is float))
+          && (!item.keys().hasAny(['lastDisconnectedAt']) || (item.lastDisconnectedAt is int || item.lastDisconnectedAt is float))
+          && (!item.keys().hasAny(['isConnected']) || item.isConnected is bool);
+    }
+
+    function validateConnectedDevices(connected) {
+      return connected is list 
+          && connected.size() <= 20
+          && (connected.size() == 0 || isValidBluetoothDevice(connected[0]));
+    }
+
+    function validateAllDevices(all) {
+      return all is list 
+          && all.size() <= 50
+          && (all.size() == 0 || isValidBluetoothDevice(all[0]));
+    }
+
+    function validateDisconnectRequests(reqs) {
+      return reqs is list 
+          && reqs.size() <= 20
+          && (reqs.size() == 0 || isValidMacAddress(reqs[0]));
+    }
+
     // -------------------------------------------------------------------------
-    // Validation Blueprints
+    // Validation Blueprints (Anti-Update-Gap)
     // -------------------------------------------------------------------------
     function isValidDevice(data) {
       return data.keys().hasAll(['userId', 'deviceName', 'bluetoothConnected', 'lastUpdated'])
+          // Ensure all fields have correct data types and semantic sizes
           && data.userId == request.auth.uid
           && data.deviceName is string
           && data.deviceName.size() > 0
           && data.deviceName.size() <= 100
-          && data.bluetoothConnected is bool;
+          && data.bluetoothConnected is bool
+          && (!data.keys().hasAny(['bluetoothPoweredOn']) || data.bluetoothPoweredOn is bool)
+          && (!data.keys().hasAny(['requestBluetoothPower']) || data.requestBluetoothPower is bool)
+          && (!data.keys().hasAny(['connectedDevices']) || validateConnectedDevices(data.connectedDevices))
+          && (!data.keys().hasAny(['allDevices']) || validateAllDevices(data.allDevices))
+          && (!data.keys().hasAny(['disconnectRequests']) || validateDisconnectRequests(data.disconnectRequests))
+          // Strict top-level allowed key check using empty diff. Computes Set of keys and asserts hasOnly
+          && data.diff({}).affectedKeys().hasOnly([
+               'userId', 'deviceName', 'bluetoothConnected', 'lastUpdated',
+               'bluetoothPoweredOn', 'requestBluetoothPower', 'connectedDevices',
+               'allDevices', 'disconnectRequests'
+             ]);
     }
 
     // -------------------------------------------------------------------------
     // Collections
-    // -------------------------------------------------------------------------
-    // TODO (Phase 3 Hardening / Future Scope):
-    // - Validate connectedDevices and allDevices element shape (check inner fields).
-    // - Limit array lengths to prevent DoS vector (e.g., maximum 50 paired devices in allDevices).
-    // - Validate disconnectRequests as a bounded string array.
-    // - Restrict device class type values specifically to: AUDIO, COMPUTER, PHONE, WEARABLE, OTHER.
-    // - Consider moving devices collection to nested user paths: /users/{uid}/devices/{deviceId}.
     // -------------------------------------------------------------------------
     match /devices/{deviceId} {
       // READ: Users can only read their own devices
@@ -73,8 +116,11 @@ service cloud.firestore {
                     && isValidDevice(incoming())
                     && incoming().userId == existing().userId
                     && (incoming().lastUpdated == request.time || incoming().lastUpdated == existing().lastUpdated)
-                    // Action: Update Status
-                    && incoming().diff(existing()).affectedKeys().hasOnly(['bluetoothConnected', 'lastUpdated', 'deviceName', 'connectedDevices', 'allDevices', 'bluetoothPoweredOn', 'requestBluetoothPower', 'disconnectRequests']);
+                    // Action: Update Status (Ensure update cannot introduce arbitrary fields)
+                    && incoming().diff(existing()).affectedKeys().hasOnly([
+                         'bluetoothConnected', 'lastUpdated', 'deviceName', 'connectedDevices', 
+                         'allDevices', 'bluetoothPoweredOn', 'requestBluetoothPower', 'disconnectRequests'
+                       ]);
 
       // DELETE: Users can delete their own devices
       allow delete: if isVerified() && isValidId(deviceId) && existing().userId == request.auth.uid;

@@ -59,9 +59,20 @@ Verify the target parameters match the deployment properties:
 - **No Missing Icons**: `public/manifest.json` currently has no icons array structure. Keep it clean or add local images directly to avoid broken offline-install references on device home screens.
 - **Custom Service Worker**: `public/sw.js` utilizes a custom, streamlined Network-First & Cache-First navigation solution for same-origin static assets. Do NOT compile or rewrite it into Workbox.
 
-## 🔒 Future Phase 3 Schema & Validation Hardening Goals
+## 🔒 Completed Security Rules Hardening (Phase 3)
+We have successfully hardened `firestore.rules` under the current `/devices/{deviceId}` path:
+1. **Strict Key Allowlists**: Prevents arbitrary field injection on both creation and updates using standard empty diff sets (`incoming().diff({}).affectedKeys().hasOnly([...])`).
+2. **Strict Types & Length Ranges**: Validates types for all fields and sizes (`deviceName` is <= 100 chars, `userId` matches `request.auth.uid`, `bluetoothConnected` is `bool`).
+3. **Array Bounding Restrictions**:
+   - `connectedDevices`: maximum 20 entries.
+   - `allDevices`: maximum 50 entries.
+   - `disconnectRequests`: maximum 20 entries.
+4. **Bluetooth MAC Address Regex**: Validates representation format (`^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`) for `address` fields and `disconnectRequests` string values.
+5. **Typing Enumeration Sanity**: Restricts device classification `type` values exactly to the allowed list: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
+6. **Limit Iteration Verification**: Validates structure and inner fields of the first element of list structures when non-empty, bypassing standard Firestore array iteration limitations securely.
+
+## 🚀 Future Phase 4 Schema Migration & Isolation Goals
 Use these specifications to guide future database schema iterations:
-1. **Array Content Rules**: Enforce detailed validation on the contents of the `connectedDevices` and `allDevices` lists.
-2. **Access Limitation & Payload Boundaries**: Set constraints on list sizes (e.g., maximum 50 paired devices in `allDevices`) and limit size inputs of device identities or Bluetooth MAC strings.
-3. **Typing Enumeration Sanity**: Strictly limit device classifications to standard type definitions (`AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`).
-4. **Sub-resource Migration Plan**: Migrate standard entries to user nested structures (`/users/{uid}/devices/{deviceId}`) and isolate control parameters to a distinct requests collection to minimize telemetry write overhead.
+1. **Sub-resource Migration Plan**: Migrate standard entries to user nested structures (`/users/{uid}/devices/{deviceId}`) to naturally inherit secure scope policies.
+2. **Command / Telemetry Separation**: Migrate control parameters (such as `requestBluetoothPower` and `disconnectRequests`) to a distinct requests collection to minimize write overhead on telemetry updates.
+

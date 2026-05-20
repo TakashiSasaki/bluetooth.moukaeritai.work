@@ -82,25 +82,25 @@ It is critical to evaluate the following platform restrictions before planning a
 
 ---
 
-## 📅 Remaining Task List & Assets
+## 🔒 Hardened Firestore Security Rules (Phase 3 Completed)
 
-- [ ] **PWA Icons Integration**: Add corporate or custom brand assets for desktop and mobile homescreens (e.g., `pwa-192x192.png` and `pwa-512x512.png`), re-enabling the icons array definition inside `/public/manifest.json`.
-- [ ] **Android App Build**: Compile and deploy the companion client service within Android Studio using the instructions inside `/android-instructions.md`.
+We have successfully locked down and hardened Firestore Security Rules under the unchanged `/devices/{deviceId}` path:
+1. **Strict Key Allowlists**: Prevents arbitrary field injection on create/update using standard empty map diffs (`incoming().diff({}).affectedKeys().hasOnly([...])`).
+2. **Field Types & Size Constraints**: Validates primitive types and enforces limits (e.g., `deviceName` string length check <= 100).
+3. **List Length Bounding**:
+   - `connectedDevices` is restricted to max 20 entries.
+   - `allDevices` is restricted to max 50 entries.
+   - `disconnectRequests` is restricted to max 20 entries.
+4. **Bluetooth MAC Address Regex validation**: Checks that device address strings match `^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$`.
+5. **Typing Enumeration Sanity**: Enforces valid device classification type strings: `AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`.
+6. **Limit Iteration Verification**: Safe verification of structure and fields of the first element in lists, bypassing native rules limitation for array iteration by validating the first element (`data.array[0] is map`).
 
 ---
 
-## 🔒 Future Firestore Schema & Security Hardening Roadmap (Phase 3)
+## 📅 Remaining Task List & Future Roadmap (Phase 4)
 
-The following schema refinements and security constraints are planned for implementation during the upcoming Phase 3 release:
+- [ ] **PWA Icons Integration**: Add corporate or custom brand assets for desktop and mobile homescreens (e.g., `pwa-192x192.png` and `pwa-512x512.png`), re-enabling the icons array definition inside `/public/manifest.json`.
+- [ ] **Android App Build**: Compile and deploy the companion client service within Android Studio using the instructions inside `/android-instructions.md`.
+- [ ] **Structured User Sub-resource Migration**: Migrate the root path `/devices/{deviceId}` to a nested user scope `/users/{uid}/devices/{deviceId}`.
+- [ ] **Command / Telemetry Isolation**: Separate interactive control queues (such as `requestBluetoothPower` and `disconnectRequests`) from telemetry values into isolated document paths to minimize write cost overhead.
 
-1. **Strict Field Elements Validation**:
-   - Enforce validation on `connectedDevices` array element shapes to verify expected properties.
-   - Enforce validation on `allDevices` (paired device list) elements.
-2. **Resource Poisoning and denial-of-wallet Protection**:
-   - Impose strict limits on collection and list array sizes (e.g., maximum of 50 paired devices inside `allDevices`, bounded `disconnectRequests` length).
-   - Impose strict string size limits on Bluetooth hardware addresses (MAC structure length validation or regex format).
-3. **Domain Classification Sanity**:
-   - Restrict accessory types specifically to legal classifications (`AUDIO`, `COMPUTER`, `PHONE`, `WEARABLE`, `OTHER`).
-4. **Access Control Restructuring**:
-   - Migrate root `/devices/{deviceId}` path to a structured sub-resource architecture: `/users/{uid}/devices/{deviceId}`.
-   - Separate interactive control queues (such as `requestBluetoothPower` and `disconnectRequests`) from state logging and telemetry payloads to isolate writes.
