@@ -1,10 +1,10 @@
 {
-  "projectId": "museum-6f112",
-  "appId": "1:929760742569:web:604c78ad72e6f9b437edb8",
-  "apiKey": "AIzaSyAxPUc6ET8mR2rGYNFru8hJuqVB5itDcFk",
-  "authDomain": "museum-6f112.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-9493750d-ee81-4fc8-a639-4db9887e22f3",
-  "storageBucket": "museum-6f112.firebasestorage.app",
-  "messagingSenderId": "929760742569",
+  "projectId": "moukaeritaid",
+  "appId": "1:1042140630327:web:a933e3666d3c69596b9eb2",
+  "apiKey": "AIzaSyC-rNdm8sXy3WOUnMA2GelyXLft0Mjebog",
+  "authDomain": "moukaeritaid.firebaseapp.com",
+  "databaseURL": "https://moukaeritaid-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "storageBucket": "moukaeritaid.firebasestorage.app",
+  "messagingSenderId": "1042140630327",
   "measurementId": ""
 }

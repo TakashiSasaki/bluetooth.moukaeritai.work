@@ -4,10 +4,9 @@ import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase/config';
 import { OperationType, handleFirestoreError } from '../firebase/error';
 import { Device, BluetoothDevice } from '../types';
-import { Bluetooth, BluetoothOff, LogOut, Smartphone, Clock, User as UserIcon, ChevronDown, ChevronUp, CheckCircle, XCircle, FileText, LayoutDashboard, ChevronRight, Database, Trash2, Unlink, Terminal } from 'lucide-react';
+import { Bluetooth, BluetoothOff, LogOut, Smartphone, Clock, User as UserIcon, ChevronDown, ChevronUp, CheckCircle, XCircle, FileText, LayoutDashboard, ChevronRight, Database, Trash2, Unlink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
-import Markdown from 'react-markdown';
 
 interface DashboardProps {
   user: User;
@@ -19,39 +18,77 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState<Record<string, boolean>>({});
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'guide' | 'android'>('dashboard');
-  const [androidInstructions, setAndroidInstructions] = useState<string>('');
-  const [loadingInstructions, setLoadingInstructions] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'guide'>('dashboard');
   const [updatingPower, setUpdatingPower] = useState<Record<string, boolean>>({});
   const [disconnecting, setDisconnecting] = useState<Record<string, boolean>>({});
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (activeTab === 'android' && !androidInstructions) {
-      setLoadingInstructions(true);
-      fetch('/android-instructions.md')
-        .then(res => res.text())
-        .then(text => {
-          setAndroidInstructions(text);
-          setLoadingInstructions(false);
-        })
-        .catch(err => {
-          console.error('Failed to load Android instructions:', err);
-          setAndroidInstructions('Android用設定ガイドの読み込みに失敗しました。詳細についてはルートディレクトリの `android-instructions.md` もしくは `public/android-instructions.md` をご確認ください。');
-          setLoadingInstructions(false);
-        });
-    }
-  }, [activeTab, androidInstructions]);
 
   const toggleBluetoothPower = async (deviceId: string, currentPower?: boolean) => {
     setUpdatingPower(prev => ({ ...prev, [deviceId]: true }));
     try {
       const targetState = !currentPower;
       const deviceRef = doc(db, 'devices', deviceId);
-      await updateDoc(deviceRef, {
-        requestBluetoothPower: targetState
-      });
+      
+      const isDummy = deviceId.startsWith('dummy_');
+      if (isDummy) {
+        // デモデータの場合は、要求フィールドとともに、現在状態(bluetoothPoweredOn)も即座に書き換えシミュレート
+        const updatePayload: any = {
+          requestBluetoothPower: targetState,
+          bluetoothPoweredOn: targetState,
+          lastUpdated: serverTimestamp()
+        };
+        
+        // Bluetooth機能がオフになった場合は接続も切れたとシミュレート
+        if (!targetState) {
+          updatePayload.bluetoothConnected = false;
+          updatePayload.connectedDevices = [];
+        } else {
+          // オンに戻した時、本来のダミーデータを一部復元
+          if (deviceId.includes('pixel')) {
+            updatePayload.connectedDevices = [
+              {
+                name: 'Sony WH-1000XM5',
+                address: '00:1B:44:11:3A:B7',
+                type: 'AUDIO',
+                firstConnectedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+                lastConnectedAt: Date.now() - 2 * 60 * 1050,
+                isConnected: true
+              },
+              {
+                name: 'Pixel Watch 2',
+                address: '7C:2E:0D:1A:E5:90',
+                type: 'WEARABLE',
+                firstConnectedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+                lastConnectedAt: Date.now() - 2 * 60 * 1050,
+                isConnected: true
+              }
+            ];
+            updatePayload.bluetoothConnected = true;
+          } else if (deviceId.includes('xperia')) {
+            updatePayload.connectedDevices = [
+              {
+                name: 'Sony LinkBuds S',
+                address: '38:18:AA:77:4B:92',
+                type: 'AUDIO',
+                firstConnectedAt: Date.now() - 12 * 60 * 60 * 1000,
+                lastConnectedAt: Date.now() - 30 * 60 * 1050,
+                isConnected: true
+              }
+            ];
+            updatePayload.bluetoothConnected = true;
+          } else {
+            // Galaxyは未接続状態を維持
+            updatePayload.bluetoothConnected = false;
+            updatePayload.connectedDevices = [];
+          }
+        }
+        await updateDoc(deviceRef, updatePayload);
+      } else {
+        await updateDoc(deviceRef, {
+          requestBluetoothPower: targetState
+        });
+      }
     } catch (error) {
       console.error('Error updating Bluetooth power request:', error);
       handleFirestoreError(error, OperationType.UPDATE, `devices/${deviceId}`);
@@ -114,6 +151,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     try {
       const pixelId = `dummy_pixel_8_${user.uid}`;
       const xperiaId = `dummy_xperia_1_${user.uid}`;
+      const galaxyId = `dummy_galaxy_24_${user.uid}`;
       const now = Date.now();
 
       // [デモ] Google Pixel 8 Pro
@@ -203,6 +241,38 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
         ],
         disconnectRequests: []
       });
+
+      // [デモ] Samsung Galaxy S24 Ultra (Bluetooth機能ONだがペアリングされているものの現在未接続のデモデータ)
+      await setDoc(doc(db, 'devices', galaxyId), {
+        userId: user.uid,
+        deviceName: '[デモ] Samsung Galaxy S24 Ultra',
+        bluetoothConnected: false,
+        bluetoothPoweredOn: true,
+        requestBluetoothPower: true,
+        lastUpdated: serverTimestamp(),
+        connectedDevices: [],
+        allDevices: [
+          {
+            name: 'Galaxy Buds2 Pro',
+            address: 'E0:AA:96:2C:4D:81',
+            type: 'AUDIO',
+            firstConnectedAt: now - 4 * 24 * 60 * 60 * 1000,
+            lastConnectedAt: now - 3 * 60 * 60 * 1000,
+            lastDisconnectedAt: now - 2 * 60 * 60 * 1000,
+            isConnected: false
+          },
+          {
+            name: 'Galaxy Watch 6',
+            address: '2C:F0:EE:D3:51:7A',
+            type: 'WEARABLE',
+            firstConnectedAt: now - 6 * 24 * 60 * 60 * 1000,
+            lastConnectedAt: now - 5 * 24 * 60 * 60 * 1000,
+            lastDisconnectedAt: now - 4 * 24 * 60 * 60 * 1000,
+            isConnected: false
+          }
+        ],
+        disconnectRequests: []
+      });
     } catch (error) {
       console.error('Error registering dummy data:', error);
       handleFirestoreError(error, OperationType.WRITE, 'devices');
@@ -213,9 +283,11 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     try {
       const pixelId = `dummy_pixel_8_${user.uid}`;
       const xperiaId = `dummy_xperia_1_${user.uid}`;
+      const galaxyId = `dummy_galaxy_24_${user.uid}`;
 
       await deleteDoc(doc(db, 'devices', pixelId));
       await deleteDoc(doc(db, 'devices', xperiaId));
+      await deleteDoc(doc(db, 'devices', galaxyId));
     } catch (error) {
       console.error('Error deleting dummy data:', error);
       handleFirestoreError(error, OperationType.DELETE, 'devices');
@@ -314,16 +386,6 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
               >
                 使い方ガイド
               </button>
-              <button
-                onClick={() => setActiveTab('android')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'android'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Android実装手順
-              </button>
             </nav>
           </div>
 
@@ -402,24 +464,6 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                           <span>使い方ガイド</span>
                         </div>
                         {activeTab === 'guide' && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />}
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setActiveTab('android');
-                          setShowProfileMenu(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-all ${
-                          activeTab === 'android'
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Terminal className="w-4 h-4" />
-                          <span>Android実装手順</span>
-                        </div>
-                        {activeTab === 'android' && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />}
                       </button>
                     </div>
 
@@ -540,65 +584,6 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
               </p>
             </div>
           </motion.div>
-        ) : activeTab === 'android' ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-sm space-y-6"
-          >
-            <div>
-              <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold mb-3">
-                <Terminal className="w-3.5 h-3.5" /> Android Setup Manual (Native Integration)
-              </div>
-              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Android アプリ実装手順</h2>
-              <p className="text-slate-500 mt-2 max-w-2xl text-sm">
-                スマートフォンのBluetooth接続状況をこのリアルタイムダッシュボードに反映させるための、Androidネイティブアプリの実装方法を解説する詳細ドキュメントです。
-              </p>
-            </div>
-
-            <div className="border-t border-slate-100 pt-6">
-              {loadingInstructions ? (
-                <div className="space-y-4 py-8">
-                  <div className="h-4 bg-slate-100 rounded w-1/4 animate-pulse"></div>
-                  <div className="h-4 bg-slate-100 rounded w-1/2 animate-pulse"></div>
-                  <div className="h-20 bg-slate-100 rounded animate-pulse"></div>
-                  <div className="h-4 bg-slate-100 rounded w-1/3 animate-pulse"></div>
-                </div>
-              ) : (
-                <div className="markdown-body">
-                  <Markdown
-                    components={{
-                      h1: ({node, ...props}) => <h1 className="text-2xl font-extrabold text-slate-900 border-b border-slate-200 pb-3 mb-6 mt-8" {...props} />,
-                      h2: ({node, ...props}) => <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 mb-4 mt-8" {...props} />,
-                      h3: ({node, ...props}) => <h3 className="text-sm font-bold text-slate-700 mb-2 mt-4" {...props} />,
-                      p: ({node, ...props}) => <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-4" {...props} />,
-                      ul: ({node, ...props}) => <ul className="list-disc list-inside space-y-2 mb-4 text-slate-600 text-xs sm:text-sm pl-4" {...props} />,
-                      ol: ({node, ...props}) => <ol className="list-decimal list-inside space-y-2 mb-4 text-slate-600 text-xs sm:text-sm pl-4" {...props} />,
-                      li: ({node, ...props}) => <li className="text-slate-600 leading-relaxed" {...props} />,
-                      code: ({node, className, children, ...props}) => {
-                        const match = /language-(\w+)/.exec(className || '');
-                        return match ? (
-                          <pre className="bg-slate-900 text-slate-200 p-4 rounded-xl font-mono text-[10px] sm:text-xs overflow-x-auto shadow-inner border border-slate-800 my-4 leading-relaxed">
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          </pre>
-                        ) : (
-                          <code className="bg-slate-100 text-blue-600 px-1.5 py-0.5 rounded font-mono text-xs border border-slate-200" {...props}>
-                            {children}
-                          </code>
-                        );
-                      },
-                      a: ({node, ...props}) => <a className="text-blue-600 hover:underline hover:text-blue-700 font-medium" {...props} />,
-                      blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 bg-blue-50/50 p-4 rounded-r-xl text-slate-700 font-medium text-xs my-4" {...props} />,
-                    }}
-                  >
-                    {androidInstructions}
-                  </Markdown>
-                </div>
-              )}
-            </div>
-          </motion.div>
         ) : (
           <>
             <div className="mb-8">
@@ -671,7 +656,10 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                     <div className="flex flex-col items-end gap-1 bg-slate-50/80 p-1.5 rounded-lg border border-slate-100">
                       <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">ON/OFF Remote</span>
                       <button
-                        onClick={() => toggleBluetoothPower(device.id, device.bluetoothPoweredOn !== false)}
+                        onClick={() => {
+                          const currentToggleState = device.requestBluetoothPower ?? device.bluetoothPoweredOn ?? true;
+                          toggleBluetoothPower(device.id, currentToggleState);
+                        }}
                         disabled={updatingPower[device.id]}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
                           (device.requestBluetoothPower ?? device.bluetoothPoweredOn ?? true) ? 'bg-blue-600' : 'bg-slate-300'
