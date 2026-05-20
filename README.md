@@ -38,6 +38,8 @@ To run the web dashboard locally, execute the following commands in the root dir
    ```
    All static assets will be compiled into the `dist/` directory.
 
+   > **Note**: `package-lock.json` is intentionally absent during active pre-production development and will be regenerated during final stabilization / release preparation.
+
 ---
 
 ## 🔥 Firebase Setup Requirements
