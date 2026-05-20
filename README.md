@@ -22,8 +22,9 @@ The system relies on an accompanying Android monitoring application that capture
 To run the web dashboard locally, execute the following commands in the root directory:
 
 1. **Install Dependencies**:
+   For normal setup, use `npm ci`. (Use `npm install` only when intentionally adding, removing, or updating dependencies. `package-lock.json` is committed and should remain in sync with `package.json`.)
    ```bash
-   npm install
+   npm ci
    ```
 
 2. **Start the Development Server**:
@@ -37,8 +38,6 @@ To run the web dashboard locally, execute the following commands in the root dir
    npm run build
    ```
    All static assets will be compiled into the `dist/` directory.
-
-   > **Note**: `package-lock.json` has been intentionally regenerated for final stabilization / release preparation. Use `npm ci` for dependency installation.
 
 ---
 
@@ -77,8 +76,8 @@ It is critical to evaluate the following platform restrictions before planning a
 
 1. **Restricted Programmatic Power Controls**:
    Beginning with Android 10 (API level 29) and further solidified in subsequent versions, Google has deprecated and security-locked `BluetoothAdapter.enable()` and `BluetoothAdapter.disable()`. Normal user-installed apps cannot programmatically toggle Bluetooth power without human interaction.
-2. **Experimental Request-State Pattern**:
-   The Remote Bluetooth ON/OFF toggles in the dashboard write to Firestore as an intent (the `requestBluetoothPower` flag). The native Android service listens to this state, but actual toggle execution will be unsuccessful unless the app is running in system-app contexts (e.g., Device Owner, Profile Owner, or pre-installed system vendor privileges). On normal consumer devices, this should be considered an experimental request that native firmware logs or informs about rather than hard-executing.
+2. **Experimental Command Pattern**:
+   Remote Bluetooth ON/OFF actions create `SET_BLUETOOTH_POWER` command documents under `/users/{uid}/devices/{deviceId}/commands/{commandId}`. The command is a requested intent, not a guaranteed hardware control. Android companion clients process pending commands when authenticated under the same Firebase UID. On normal consumer devices, this should be considered an experimental request that native firmware logs or informs about rather than hard-executing.
 3. **Android Client Implementation**:
    This repository contains initial design instructions and Kotlin snippet architecture under `/android-instructions.md`. **This phase does NOT deploy or fully implement the native Android application package.** It only lays out the database schema, rules, and service definitions.
 

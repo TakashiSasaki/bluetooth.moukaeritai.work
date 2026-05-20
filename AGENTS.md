@@ -19,7 +19,7 @@ This guide outlines the system architecture, development rules, constraints, and
 ## 🗺️ System Architecture & File Registry
 1. **Frontend Entry**: `src/main.tsx` mounts `src/App.tsx`.
 2. **Main Application Frame**: `src/App.tsx` handles onboarding, authorization status checks, and sets up OAuth domain warnings.
-3. **Core Dashboard View**: `src/components/Dashboard.tsx` maintains status streaming, manages live queries, triggers remote adapters toggle request telemetry, and loads demo datasets.
+3. **Core Dashboard View**: `src/components/Dashboard.tsx` maintains status streaming, manages live queries, creates command documents such as SET_BLUETOOTH_POWER and DISCONNECT_ACCESSORY, and loads demo datasets.
 4. **Firebase Configuration**: `src/firebase/config.ts` instantiates standard client services by loading from metadata `firebase-applet-config.json`.
 5. **Database Rules**: `firestore.rules` enforces authorization, document scope checks, and limits write permissions.
 6. **Deploy Parameters**: `firebase.json` controls hosting endpoints and links rules location.
@@ -27,10 +27,10 @@ This guide outlines the system architecture, development rules, constraints, and
 
 ## 🛠️ Development & Validation Scripts
 > [!IMPORTANT]
-> `package-lock.json` has been intentionally regenerated for the final stabilization phase. Use `npm ci` for reliable and reproducible builds instead of `npm install` when you need to respect the exact lockfile versions.
+> `package-lock.json` is intentionally committed and maintained. Use `npm ci` for reproducible installs and validation. Use `npm install` only when changing dependencies. If `package.json` changes, `package-lock.json` must be updated consistently. Do not delete `package-lock.json` unless explicitly instructed.
 
 Execute the following native scripts exactly as defined in `package.json`:
-- `npm ci` / `npm install` — Installs package dependencies. (Prefer `npm ci` in this stabilized state)
+- `npm ci` — Installs package dependencies. (Use `npm install` only when adding or removing packages)
 - `npm run dev` — Bootstraps developer sandbox server at `http://localhost:3000`.
 - `npm run lint` — Executes static TypeScript compile checks (`tsc --noEmit`).
 - `npm run build` — Bundles optimization build assets into raw output root `dist/`.
@@ -42,7 +42,7 @@ Execute the following native scripts exactly as defined in `package.json`:
 - **Authentication Resilience**: Maintain existing features for both **Google Sign-In** and **Anonymous Authentication**.
 - **Schema Paths Integrity**: Canonical device path is now `/users/{uid}/devices/{deviceId}`. Do NOT reintroduce the obsolete root-level `/devices` collection path for normal app reads, writes, deletes, or listings. The dynamic path variable `uid` serves as the primary authorization boundary. User data is fully isolated from other authenticated users. Device documents do not require/contain the redundant `userId` field; client writes should not include it, as path-level validation is authoritative.
 - **No Native Android Package Modification**: No native Android development or Kotlin changes should be performed in the workspace.
-- **Android Platform Limitations**: Do not assume consumer Android devices can toggle Bluetooth programmatically. Treat `requestBluetoothPower` strictly as a requested intent state.
+- **Android Platform Limitations**: Do not assume consumer Android devices can toggle Bluetooth programmatically. Bluetooth power commands are requested intents, not guaranteed hardware controls. Do not reintroduce `requestBluetoothPower` or `disconnectRequests` into device telemetry documents.
 
 ## 🌍 Firebase Project Parameters
 Verify the target parameters match the deployment properties:
@@ -95,5 +95,5 @@ Use these specifications to guide future database schema iterations:
    - Do not weaken terminal command immutability rules. Terminal immutability applies to updates/reopening of terminal command documents, not to owner deletion.
    - Do not implement automatic deletion or Cloud Functions unless explicitly requested. Terminal commands are retained for approximately 7 days by general policy.
    - Do not treat commands as compliance-grade immutable audit logs. Do not remove owner delete permission from command documents unless explicitly instructed.
-   - `package-lock.json` is now present for the final stabilization phase; prefer `npm ci` for dependency installation.
+   - `package-lock.json` is intentionally committed; use `npm ci` as the standard installation path.
 
