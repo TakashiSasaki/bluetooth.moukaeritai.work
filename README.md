@@ -105,6 +105,7 @@ We have successfully separated interactive operator control queues from primary 
 2. **Telemetry Isolation**: Removed `requestBluetoothPower` and `disconnectRequests` fields from device telemetry documents to minimize unnecessary write overhead.
 3. **Stricter Validation Rules**: Added validation helpers (`isValidCommand`, `isValidCommandType`, `isValidCommandStatus`) to enforce proper payload schema, including type-specific fields (`targetPower` for `SET_BLUETOOTH_POWER` and regex-vetted `accessoryAddress` for `DISCONNECT_ACCESSORY`).
 4. **Asynchronous Command Pattern**: Operators write commands as new documents in the `commands` subcollection. Native companion units or mock-service workers dynamically pick up pending commands, execute them, and report execution logs and final statuses (`completed`/`failed`/`unsupported`) directly on the command documents.
+5. **Same-UID Authentication Constraint**: Command synchronization and processing are fully locked down at the user-scoped `/users/{uid}/` nested level. A companion Android client or processing agent must log in using the exact same Firebase account/identity scope as the web dashboard user to subscribe to or update pending commands. Any future production-ready enterprise expansions could introduce specialized API gateways, temporary custom token grants, or device-specific service accounts.
 
 ### 📦 Pre-Production Data Cleanup Note
 - This application is pre-production; therefore, no database migration script is provided.

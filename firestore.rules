@@ -154,8 +154,9 @@ service cloud.firestore {
                       && isValidId(deviceId)
                       && isValidId(commandId)
                       && isValidCommand(incoming())
+                      && incoming().status == 'pending'
                       && incoming().requestedAt == request.time
-                      && (!incoming().keys().hasAny(['updatedAt']) || incoming().updatedAt == request.time);
+                      && !incoming().keys().hasAny(['updatedAt', 'errorMessage', 'resultMessage']);
         allow update: if isVerified()
                       && isValidId(uid) && uid == request.auth.uid
                       && isValidId(deviceId)

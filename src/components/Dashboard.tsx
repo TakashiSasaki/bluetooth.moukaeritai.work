@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { collection, onSnapshot, query, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, arrayUnion, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc, setDoc, deleteDoc, serverTimestamp, addDoc, where } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase/config';
 import { OperationType, handleFirestoreError } from '../firebase/error';
@@ -33,7 +33,8 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     
     nonDummyDevices.forEach(device => {
       const q = query(
-        collection(db, 'users', user.uid, 'devices', device.id, 'commands')
+        collection(db, 'users', user.uid, 'devices', device.id, 'commands'),
+        where('status', '==', 'pending')
       );
       
       const unsub = onSnapshot(q, (snapshot) => {

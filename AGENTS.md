@@ -78,6 +78,7 @@ We have introduced a per-device commands subcollection path (`/users/{uid}/devic
 2. **Independent Status Tracker**: Command documents contain metadata such as `type`, `status` (`pending`, `acknowledged`, `completed`, `failed`, `unsupported`), and server-side `requestedAt`/`updatedAt` timestamps.
 3. **Stricter Validation Rules**: Added validation helpers (`isValidCommand()`, `isValidCommandType()`, `isValidCommandStatus()`) to enforce type-specific properties like `targetPower` for `SET_BLUETOOTH_POWER` and format-checked `accessoryAddress` via Bluetooth MAC Address regex for `DISCONNECT_ACCESSORY`.
 4. **Audit Trail**: Real-world/replica Android devices fetch commands with status `"pending"`, execute the task asynchronously, and safely write logs of their execution back to the same command document.
+5. **Authentication & Ownership Boundary**: All command documents are nested within the user-scoped path structure (`/users/{uid}/devices/{deviceId}/commands/{commandId}`). Therefore, a native companion app or processor must authenticate with Firestore using the same Firebase user account (or share the same `uid` identity scope) to fetch or update pending commands. The security rules strictly forbid cross-user command access or arbitrary device-agent privilege escalation.
 
 ## 🚀 Future Phase 5 Schema Migration & Isolation Goals
 Use these specifications to guide future database schema iterations:
