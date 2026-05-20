@@ -262,30 +262,14 @@ class MainActivity : ComponentActivity() {
                         if (requestedPower != currentPower) {
                             println("Received remote Bluetooth power request: $requestedPower")
                             try {
-                                println("Attempting privileged Bluetooth power change (might fail or be ignored)...")
-                                val success = if (requestedPower) {
-                                    adapter.enable()
-                                } else {
-                                    adapter.disable()
-                                }
-                                
-                                if (success) {
-                                    commandsColRef.document(commandId).update(
-                                        mapOf(
-                                            "status" to "completed",
-                                            "updatedAt" to FieldValue.serverTimestamp(),
-                                            "resultMessage" to "Bluetooth power state set to $requestedPower successfully."
-                                        )
+                                println("Bluetooth power change requested but unsupported for user-installed apps.")
+                                commandsColRef.document(commandId).update(
+                                    mapOf(
+                                        "status" to "unsupported",
+                                        "updatedAt" to FieldValue.serverTimestamp(),
+                                        "resultMessage" to "Platform restricted Bluetooth toggle for user-installed app."
                                     )
-                                } else {
-                                    commandsColRef.document(commandId).update(
-                                        mapOf(
-                                            "status" to "failed",
-                                            "updatedAt" to FieldValue.serverTimestamp(),
-                                            "errorMessage" to "Platform restricted Bluetooth toggle for user-installed app."
-                                        )
-                                    )
-                                }
+                                )
                             } catch (ex: Exception) {
                                 commandsColRef.document(commandId).update(
                                     mapOf(
@@ -309,15 +293,14 @@ class MainActivity : ComponentActivity() {
                         val address = doc.getString("accessoryAddress") ?: continue
                         println("Received accessory disconnect command for: $address")
                         try {
-                            // Programmatically disconnecting paired profiles (A2DP, HFP, BLE) requires Bluetooth profile proxy or reflection-based APIs.
-                            // If successfully executed physically:
-                            println("Executing Bluetooth accessory disconnect reflection for $address...")
+                            // Programmatically disconnecting paired profiles (A2DP, HFP, BLE) requires Bluetooth profile proxy or reflection-based APIs which are restricted.
+                            println("Accessory disconnect programmatic API not available for standard apps.")
                             
                             commandsColRef.document(commandId).update(
                                 mapOf(
-                                    "status" to "completed",
+                                    "status" to "unsupported",
                                     "updatedAt" to FieldValue.serverTimestamp(),
-                                    "resultMessage" to "Accessory disconnect command processed."
+                                    "resultMessage" to "Accessory disconnect programmatic API not available for standard apps."
                                 )
                             )
                         } catch (ex: Exception) {

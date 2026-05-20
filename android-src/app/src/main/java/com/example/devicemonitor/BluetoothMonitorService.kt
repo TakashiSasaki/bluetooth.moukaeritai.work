@@ -163,8 +163,6 @@ class BluetoothMonitorService : Service() {
                             android.bluetooth.BluetoothClass.Device.Major.COMPUTER -> "COMPUTER"
                             android.bluetooth.BluetoothClass.Device.Major.PHONE -> "PHONE"
                             android.bluetooth.BluetoothClass.Device.Major.WEARABLE -> "WEARABLE"
-                            android.bluetooth.BluetoothClass.Device.Major.TOY -> "TOY"
-                            android.bluetooth.BluetoothClass.Device.Major.HEALTH -> "HEALTH"
                             else -> "OTHER"
                         }
 
@@ -250,7 +248,6 @@ class BluetoothMonitorService : Service() {
 
             // Firebaseのドキュメントへ一括書き込み
             val docData = hashMapOf(
-                "userId" to currentUser.uid,
                 "deviceName" to deviceName,
                 "bluetoothConnected" to isConnected,
                 "bluetoothPoweredOn" to isPowerOn,
@@ -285,10 +282,12 @@ class BluetoothMonitorService : Service() {
         val currentUser = auth.currentUser ?: return
         @SuppressLint("HardwareIds")
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: return
-        val docRef = db.collection("devices").document(deviceId)
+        val docRef = db.collection("users").document(currentUser.uid).collection("devices").document(deviceId)
 
-        firestoreListener = docRef.addSnapshotListener { snapshot, e ->
-            if (e != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+        firestoreListener = docRef.collection("commands")
+            .whereEqualTo("status", "pending")
+            .addSnapshotListener { snapshot, e ->
+            if (e != null || snapshot == null || snapshot.isEmpty) return@addSnapshotListener
 
             val hasBtConnectPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
@@ -298,60 +297,47 @@ class BluetoothMonitorService : Service() {
 
             if (!hasBtConnectPermission) return@addSnapshotListener
 
-            // 1. Bluetooth電源オン・オフ同期要求の処理
             val adapter = bluetoothAdapter
-            if (adapter != null) {
-                val requestedPower = snapshot.getBoolean("requestBluetoothPower")
-                if (requestedPower != null) {
-                    val currentPower = adapter.isEnabled
-                    if (requestedPower != currentPower) {
-                        try {
-                            if (requestedPower) {
-                                adapter.enable()
-                            } else {
-                                adapter.disable()
-                            }
-                        } catch (ex: Exception) {
-                            // 安全のためキャッチ
+
+            for (document in snapshot.documents) {
+                val cmdType = document.getString("type") ?: continue
+                val updateData = mutableMapOf<String, Any>(
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+
+                if (cmdType == "SET_BLUETOOTH_POWER") {
+                    val requestedPower = document.getBoolean("targetPower")
+                    if (requestedPower != null && adapter != null) {
+                        val currentPower = adapter.isEnabled
+                        if (requestedPower == currentPower) {
+                            updateData["status"] = "completed"
+                            updateData["resultMessage"] = "Already in target state."
+                        } else {
+                            updateData["status"] = "unsupported"
+                            updateData["resultMessage"] = "Platform restricted Bluetooth toggle for user-installed app."
                         }
+                    } else {
+                        updateData["status"] = "failed"
+                        updateData["errorMessage"] = "Invalid command payload or adapter unavailable"
                     }
+                } else if (cmdType == "DISCONNECT_ACCESSORY") {
+                    val address = document.getString("accessoryAddress")
+                    if (address != null && adapter != null) {
+                        updateData["status"] = "unsupported"
+                        updateData["resultMessage"] = "Accessory disconnect programmatic API not available for standard apps."
+                    } else {
+                        updateData["status"] = "failed"
+                        updateData["errorMessage"] = "Invalid command payload or adapter unavailable"
+                    }
+                } else {
+                    updateData["status"] = "unsupported"
+                    updateData["errorMessage"] = "Unknown command type"
+                }
+
+                document.reference.update(updateData).addOnSuccessListener {
+                    scheduleDelayedSync(1000L)
                 }
             }
-
-            // 2. WEB側から受け取った「Bluetooth特定周辺機器の切断要求(disconnectRequests)」の遂行
-            val disconnectRequests = snapshot.get("disconnectRequests") as? List<String>
-            if (disconnectRequests != null && disconnectRequests.isNotEmpty() && adapter != null && adapter.isEnabled) {
-                processRemoteDisconnectRequests(disconnectRequests, docRef)
-            }
-        }
-    }
-
-    private fun processRemoteDisconnectRequests(addresses: List<String>, docRef: com.google.firebase.firestore.DocumentReference) {
-        val adapter = bluetoothAdapter ?: return
-        val bondedDevices = adapter.bondedDevices
-        var processedAny = false
-
-        for (address in addresses) {
-            val device = bondedDevices.find { it.address == address }
-            if (device != null) {
-                try {
-                    // ※ ペアリング解除(removeBond)のネイティブAPI記述例
-                    val method = device.javaClass.getMethod("removeBond")
-                    method.invoke(device)
-                    processedAny = true
-                } catch (ex: Exception) {
-                    // 切断またはペアリング解除エラー
-                }
-            }
-        }
-
-        if (processedAny) {
-            // 処理要求が完了したら、Firestoreの指令リスト「disconnectRequests」を完全にクリア・空配列にします
-            docRef.update("disconnectRequests", FieldValue.delete())
-                .addOnSuccessListener {
-                    // アンドロイド通知などに反映して即座に完了をお知らせする
-                    syncBluetoothStatusToFirebase()
-                }
         }
     }
 
