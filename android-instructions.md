@@ -17,6 +17,11 @@ dependencies {
 }
 ```
 
+### 🔒 Same-UID Authentication Constraint
+Because of strict path-based ownership rules (`/users/{uid}/devices/{deviceId}`), the **companion Android app must authenticate under the exact same Firebase account / User ID (`uid`) as the Web Dashboard user** (whether via Google Sign-In or shared Anonymous authentication). Cross-user database operations or anonymous-to-Google intermixed reads are strictly rejected by the database rules. This is the intended design for this single-user owner-operated prototype.
+
+---
+
 ## Core Logic (MainActivity.kt Example)
 
 The following Kotlin code demonstrates how to monitor Bluetooth connection status and sync it to Firestore:
@@ -216,6 +221,13 @@ class MainActivity : ComponentActivity() {
     }
 
     // --- REMOTE BLUETOOTH ADAPTER POWER & ACCESSORY DISCONNECT COMMANDS ---
+    //
+    // ⚙️ COMMAND LIFECYCLE STATE MACHINE:
+    // - 'pending': Instantiated initially by the Web Dashboard operator.
+    // - 'acknowledged': (Optional) Marked by companion Android app when processing begins.
+    // - 'completed' / 'failed' / 'unsupported': Terminal states. Reopening terminal commands is forbidden.
+    // - ⚠️ RULE ENFORCEMENT: All updates must omit null fields. On 'failed', errorMessage MUST be a
+    //   non-null String. On 'completed', use non-null 'resultMessage'.
     //
     // Android device listens for pending commands under `/users/{uid}/devices/{deviceId}/commands`
     // with status == "pending". Once processed, it updates status, updatedAt, and results.

@@ -84,3 +84,10 @@ We have introduced a per-device commands subcollection path (`/users/{uid}/devic
 Use these specifications to guide future database schema iterations:
 1. **Full Per-Element Array Validation**: Implement individual document/sub-collection designs for robust per-element validation.
 
+## 🔒 Documented Same-UID Design & Lifecycle Policy (Phase 5A Completed)
+1. **No Unrequested Device Identity Setup**: Do not introduce separate client tokens, service account access, or third-party multi-tenant administration layers unless explicitly requested.
+2. **Path-Based Authorization Boundary**: Retain `request.auth.uid == uid` as the primary authorization check. Device agents must share/authenticate with this exact same user context.
+3. **Command Lifecycle Rule Compliance**:
+   - Newly created commands must strictly target `status == "pending"`.
+   - Modifying a command that has reached a terminal status (`completed`, `failed`, `unsupported`) is forbidden. Transition is only valid if `existing().status` is either `pending` or `acknowledged`.
+

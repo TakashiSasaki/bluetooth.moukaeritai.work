@@ -106,6 +106,9 @@ We have successfully separated interactive operator control queues from primary 
 3. **Stricter Validation Rules**: Added validation helpers (`isValidCommand`, `isValidCommandType`, `isValidCommandStatus`) to enforce proper payload schema, including type-specific fields (`targetPower` for `SET_BLUETOOTH_POWER` and regex-vetted `accessoryAddress` for `DISCONNECT_ACCESSORY`).
 4. **Asynchronous Command Pattern**: Operators write commands as new documents in the `commands` subcollection. Native companion units or mock-service workers dynamically pick up pending commands, execute them, and report execution logs and final statuses (`completed`/`failed`/`unsupported`) directly on the command documents.
 5. **Same-UID Authentication Constraint**: Command synchronization and processing are fully locked down at the user-scoped `/users/{uid}/` nested level. A companion Android client or processing agent must log in using the exact same Firebase account/identity scope as the web dashboard user to subscribe to or update pending commands. Any future production-ready enterprise expansions could introduce specialized API gateways, temporary custom token grants, or device-specific service accounts.
+6. **Command Status Lifecycle Policy (Phase 5A Completed)**: Restricts and validates intermediate state transitions on Firestore documents:
+   - **State Space**: Consists of `pending` (initial dashboard request), `acknowledged` (companion active processing phase), and terminal states (`completed`, `failed`, `unsupported`).
+   - **Immutable Terminals**: Firestore rules prevent modifications to any commands that have reached terminal statuses, protecting the audit log from subsequent corruption or accidental state reopening. Future extensions such as `expiresAt` or `retryOf` remain deferred.
 
 ### 📦 Pre-Production Data Cleanup Note
 - This application is pre-production; therefore, no database migration script is provided.

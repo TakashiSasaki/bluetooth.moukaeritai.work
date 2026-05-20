@@ -163,6 +163,7 @@ service cloud.firestore {
                       && isValidId(commandId)
                       && isValidCommand(incoming())
                       && incoming().updatedAt == request.time
+                      && (existing().status == incoming().status || existing().status == 'pending' || existing().status == 'acknowledged')
                       && incoming().diff(existing()).affectedKeys().hasOnly([
                            'status', 'updatedAt', 'errorMessage', 'resultMessage'
                          ]);
